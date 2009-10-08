@@ -1,38 +1,10 @@
+package sim;
+
+import static util.Utils.*;
 import java.io.*;
 import java.util.*;
 
 public class Simulator {
-	
-	static int[] readBinary(DataInputStream in) {
-		List<Integer> list = new ArrayList<Integer>();
-		try {
-			for (;;) {
-				list.add(in.readInt());
-			}
-		} catch (EOFException e) {
-			int n = list.size();
-			int[] res = new int[n];
-			for (int i = 0; i < n; i++) res[i] = list.get(i);
-			return res;
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		}
-	}
-	
-	float itof(int i) {
-		return Float.intBitsToFloat(i);
-	}
-	
-	int ftoi(float f) {
-		return Float.floatToIntBits(f);
-	}
-	
-	int signExt(int i, int len) {
-		if ((i >>> (len - 1) & 1) != 0) {
-			i |= ((1 << (32 - len)) - 1) << len;
-		}
-		return i;
-	}
 	
 	int cmp(int a, int b) {
 		return a > b ? 4 : a == b ? 2 : 1;
@@ -143,7 +115,7 @@ public class Simulator {
 					break;
 				case 15:
 					//jr
-					pc = register[rs];
+					pc = register[31];
 					break;
 				case 16:
 					//read
