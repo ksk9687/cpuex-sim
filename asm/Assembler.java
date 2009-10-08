@@ -8,13 +8,19 @@ import java.util.*;
 
 public class Assembler {
 	
-	String[][] lex() {
-		Scanner sc = new Scanner(System.in);
+	String[][] lex(String encoding) {
+		Scanner sc = null;
+		try {
+			sc = new Scanner(System.in, encoding);
+		} catch (IllegalArgumentException e) {
+			System.err.printf("エラー: %s: このエンコーディングはサポートされていません%n", encoding);
+			System.exit(1);
+		}
 		List<String[]> list = new ArrayList<String[]>();
 		while (sc.hasNext()) {
 			String line = sc.nextLine().toLowerCase() + "#";
 			line = line.substring(0, line.indexOf('#'));
-			list.add(line.split(" +"));
+			list.add(line.trim().split("\\s+"));
 		}
 		return list.toArray(new String[0][]);
 	}
@@ -31,34 +37,47 @@ public class Assembler {
 			for (j = 0; j < m && ss[j].endsWith(":"); j++) {
 				String label = ss[j].substring(0, ss[j].length() - 1);
 				if (labels.containsKey(label)) {
-					throw new ParseException(String.format("%d: ラベル \"%s\" が複数回出現", i + 1, label));
+					throw new ParseException(String.format("%d行目: ラベル \"%s\" が複数回出現", i + 1, label));
 				}
 				labels.put(label, lines.size());
 				ok = false;
 			}
-			if (j < m) {
+			if (j < m && ss[0].length() > 0) {
 				lines.add(i + 1);
 				list.add(copyOfRange(ss, j, m));
 				ok = true;
 			}
 		}
 		if (!ok) {
-			throw new ParseException(String.format("%d: 無効なラベル", n));
+			throw new ParseException(String.format("%d行目: 無効なラベル", n));
 		}
 		CPU cpu = new CPU();
 		return cpu.assemble(labels, toints(lines.toArray(new Integer[0])), list.toArray(new String[0][]));
 	}
 	
-	void run() {
+	void run(String encode) {
 		try {
-			writeBinary(new DataOutputStream(System.out), parse(lex()));
+			writeBinary(new DataOutputStream(System.out), parse(lex(encode)));
 		} catch (ParseException e) {
-			System.err.println(e.getMessage());
+			System.err.println("エラー: " + e.getMessage());
 		}
 	}
 	
 	public static void main(String[] args) {
-		new Assembler().run();
+		String encode = "UTF-8";
+		boolean ok = args.length % 2 == 0;
+		for (int i = 0; i < args.length && ok; i += 2) {
+			if (args[i].equals("-encoding")) {
+				encode = args[i + 1];
+			} else {
+				ok = false;
+			}
+		}
+		if (!ok) {
+			System.err.println("使い方: java asm.Assembler [-encoding s] [< src] [> dst]");
+			return;
+		}
+		new Assembler().run(encode);
 	}
 	
 }

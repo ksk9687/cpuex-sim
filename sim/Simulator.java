@@ -13,22 +13,24 @@ public class Simulator {
 	int REGISTERSIZE = 32;
 	int MEMORYSIZE = 1 << 20;
 	
-	void run(int[] ope) {
+	void run(int[] bin) {
 		DataInputStream in = new DataInputStream(System.in);
 		int[] register = new int[REGISTERSIZE];
 		int[] memory = new int[MEMORYSIZE];
+		for (int i = 0; i < bin.length; i++) memory[i] = bin[i];
 		DataOutputStream out = new DataOutputStream(System.out);
 		try {
 			for (int pc = 0;;) {
-				if (pc < 0 || pc >= ope.length) {
+				if (pc < 0 || pc >= MEMORYSIZE) {
 					throw new RuntimeException(String.format("IllegalPC: %08x", pc));
 				}
-				int opecode = ope[pc] >>> 26;
-				int rs = ope[pc] >>> 21 & (REGISTERSIZE - 1);
-				int rt = ope[pc] >>> 16 & (REGISTERSIZE - 1);
-				int rd = ope[pc] >>> 11 & (REGISTERSIZE - 1);
-				int immediate = ope[pc] & ((1 << 16) - 1);
-				int address = ope[pc] & ((1 << (26)) - 1);
+				int ope = memory[pc];
+				int opecode = ope >>> 26;
+				int rs = ope >>> 21 & (REGISTERSIZE - 1);
+				int rt = ope >>> 16 & (REGISTERSIZE - 1);
+				int rd = ope >>> 11 & (REGISTERSIZE - 1);
+				int immediate = ope & ((1 << 16) - 1);
+				int address = ope & ((1 << (26)) - 1);
 				switch (opecode) {
 				case 0:
 					//add
@@ -136,7 +138,7 @@ public class Simulator {
 					out.flush();
 					return;
 				default:
-					throw new RuntimeException(String.format("IllegalOperation: %08x", ope[pc]));
+					throw new RuntimeException(String.format("IllegalOperation: %08x", ope));
 				}
 			}
 		} catch (IOException e) {
@@ -146,6 +148,7 @@ public class Simulator {
 	
 	public static void main(String[] args) {
 		DataInputStream in;
+		args = new String[] {"fib.ksk"};
 		try {
 			in = new DataInputStream(new FileInputStream(args[0]));
 		} catch (IOException e) {

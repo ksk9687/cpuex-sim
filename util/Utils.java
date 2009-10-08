@@ -27,6 +27,16 @@ public class Utils {
 		return String.valueOf(cs) + s;
 	}
 	
+	public static int parseHex(String s) {
+		if (s.length() > 8) throw new NumberFormatException(s);
+		return (int)Long.parseLong(s, 16);
+	}
+	
+	public static int parseBinary(String s) {
+		if (s.length() > 32) throw new NumberFormatException(s);
+		return (int)Long.parseLong(s, 2);
+	}
+	
 	public static int[] readBinary(DataInputStream in) {
 		List<Integer> list = new ArrayList<Integer>();
 		try {
