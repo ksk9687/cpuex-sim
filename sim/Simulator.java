@@ -148,7 +148,6 @@ public class Simulator {
 	
 	public static void main(String[] args) {
 		DataInputStream in;
-		args = new String[] {"fib.ksk"};
 		try {
 			in = new DataInputStream(new FileInputStream(args[0]));
 		} catch (IOException e) {
