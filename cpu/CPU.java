@@ -67,7 +67,7 @@ public class CPU {
 				} else if (ss[0].equals("load")) {
 					binary[i] = 9 << 26 | parseRegister(ss[j++]) << 21 | parseRegister(ss[j++]) << 16 | parse(labels, ss[j++], 16, 0, true, line);
 				} else if (ss[0].equals("li")) {
-					binary[i] = 10 << 26 | parseRegister(ss[j++]) << 16 | parse(labels, ss[j++], 16, 0, false, line);
+					binary[i] = 10 << 26 | parseRegister(ss[j++]) << 16 | parse(labels, ss[j++], 16, 0, true, line);
 				} else if (ss[0].equals("store")) {
 					binary[i] = 11 << 26 | parseRegister(ss[j++]) << 21 | parseRegister(ss[j++]) << 16 | parse(labels, ss[j++], 16, 0, true, line);
 				} else if (ss[0].equals("cmp")) {
@@ -77,7 +77,7 @@ public class CPU {
 				} else if (ss[0].equals("jal")) {
 					binary[i] = 14 << 26 | parse(labels, ss[j++], 26, 0, false, line);
 				} else if (ss[0].equals("jr")) {
-					binary[i] = 15 << 26;
+					binary[i] = 15 << 26 | parseRegister(ss[j++]) << 21;
 				} else if (ss[0].equals("read")) {
 					binary[i] = 16 << 26 | parseRegister(ss[j++]) << 21;
 				} else if (ss[0].equals("write")) {

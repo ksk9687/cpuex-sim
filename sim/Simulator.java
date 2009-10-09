@@ -88,7 +88,7 @@ public class Simulator {
 					break;
 				case 10:
 					//li
-					register[rt] = immediate;
+					register[rt] = signExt(immediate, 16);
 					pc++;
 					break;
 				case 11:
@@ -117,7 +117,7 @@ public class Simulator {
 					break;
 				case 15:
 					//jr
-					pc = register[31];
+					pc = register[rs];
 					break;
 				case 16:
 					//read

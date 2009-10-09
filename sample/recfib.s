@@ -7,7 +7,7 @@
 #$30=スタックポインタ
 #$31=リンクレジスタ
 #レジスタの退避はcallerが行う
-	li $30 0xffff		# $30 = 0xffff
+	li $30 0x7fff		# $30 = 0x7fff
 	li $3 1				# $3 = 1
 	load $0 $1 N		# $1 = N
 	jal FIB				# $1 = fib $1
@@ -30,5 +30,5 @@ FIB:
 	load $30 $31 2		# $31 = [$30 + 2]
 	addi $30 $30 3		# $30 = $30 + 3
 RET:
-	jr
+	jr $31				# return
 N:	raw 35				# 定数N
