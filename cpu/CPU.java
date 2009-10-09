@@ -63,7 +63,7 @@ public class CPU {
 				} else if (ss[0].equals("fmul")) {
 					binary[i] = 7 << 26 | parseRegister(ss[j++]) << 21 | parseRegister(ss[j++]) << 16 | parseRegister(ss[j++]) << 11;
 				} else if (ss[0].equals("finv")) {
-					binary[i] = 8 << 26 | parseRegister(ss[j++]) << 21 | parseRegister(ss[j++]) << 16 | parseRegister(ss[j++]) << 11;
+					binary[i] = 8 << 26 | parseRegister(ss[j++]) << 21 | parseRegister(ss[j++]) << 11;
 				} else if (ss[0].equals("load")) {
 					binary[i] = 9 << 26 | parseRegister(ss[j++]) << 21 | parseRegister(ss[j++]) << 16 | parse(labels, ss[j++], 16, 0, true, line);
 				} else if (ss[0].equals("li")) {
