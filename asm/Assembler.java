@@ -55,9 +55,16 @@ public class Assembler {
 		return cpu.assemble(labels, toints(lines.toArray(new Integer[0])), list.toArray(new String[0][]));
 	}
 	
-	void run(String encode) {
+	void run(String encode, boolean vhdl) {
 		try {
-			writeBinary(new DataOutputStream(System.out), parse(lex(encode)));
+			int[] binary = parse(lex(encode));
+			if (vhdl) {
+				for (int i : binary) {
+					System.out.printf("\"%s\",%n", toBinary(i));
+				}
+			} else {
+				writeBinary(new DataOutputStream(System.out), binary);
+			}
 		} catch (ParseException e) {
 			System.err.println("エラー: " + e.getMessage());
 		}
@@ -65,19 +72,20 @@ public class Assembler {
 	
 	public static void main(String[] args) {
 		String encode = "UTF-8";
-		boolean ok = args.length % 2 == 0;
-		for (int i = 0; i < args.length && ok; i += 2) {
+		boolean vhdl = false;
+		boolean ok = true;
+		for (int i = 0; i < args.length; i++) {
 			if (args[i].equals("-encoding")) {
-				encode = args[i + 1];
-			} else {
-				ok = false;
+				encode = args[++i];
+			} else if (args[i].equals("-vhdl")) {
+				vhdl = true;
 			}
 		}
 		if (!ok) {
-			System.err.println("使い方: java asm.Assembler [-encoding s] [< src] [> dst]");
+			System.err.println("使い方: java asm.Assembler [-encoding s] [-vhdl] [< src] [> dst]");
 			return;
 		}
-		new Assembler().run(encode);
+		new Assembler().run(encode, vhdl);
 	}
 	
 }

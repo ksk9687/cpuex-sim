@@ -49,7 +49,7 @@ public class Simulator {
 					break;
 				case 3:
 					//srl
-					register[rd] = register[rs] >>> immediate;
+					register[rt] = register[rs] >>> immediate;
 					pc++;
 					break;
 				case 4:

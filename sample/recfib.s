@@ -31,4 +31,4 @@ FIB:
 	addi $30 $30 3		# $30 = $30 + 3
 RET:
 	jr
-N:	raw 10				# 定数N
+N:	raw 35				# 定数N
