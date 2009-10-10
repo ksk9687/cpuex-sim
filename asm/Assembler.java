@@ -20,7 +20,7 @@ public class Assembler {
 		while (sc.hasNext()) {
 			String line = sc.nextLine().toLowerCase() + "#";
 			line = line.substring(0, line.indexOf('#'));
-			list.add(line.trim().split("\\s+"));
+			list.add(line.trim().split("[\\s,]+"));
 		}
 		return list.toArray(new String[0][]);
 	}
@@ -79,6 +79,9 @@ public class Assembler {
 				encode = args[++i];
 			} else if (args[i].equals("-vhdl")) {
 				vhdl = true;
+			} else {
+				ok = false;
+				break;
 			}
 		}
 		if (!ok) {

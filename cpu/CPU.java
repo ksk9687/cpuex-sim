@@ -86,6 +86,9 @@ public class CPU {
 					binary[i] = 18 << 26;
 				} else if (ss[0].equals("halt")) {
 					binary[i] = 19 << 26;
+				} else if (ss[0].equals("set")) {
+					//これじゃだめぽ
+					binary[i] = 10 << 26 | parseRegister(ss[j++]) << 16 | parse(labels, ss[j++], 16, 0, true, line);
 				} else if (ss[0].equals("raw")) {
 					binary[i] = parse(labels, ss[j++]);
 				} else {
