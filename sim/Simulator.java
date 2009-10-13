@@ -2,7 +2,6 @@ package sim;
 
 import static util.Utils.*;
 import java.io.*;
-import java.util.*;
 
 public class Simulator {
 	

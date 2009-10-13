@@ -1,82 +1,219 @@
 package asm;
 
 import static java.util.Arrays.*;
+import static java.util.Collections.*;
 import static util.Utils.*;
 import cpu.*;
 import java.io.*;
 import java.util.*;
+import util.*;
 
 public class Assembler {
 	
-	String[][] lex(String encoding) {
-		Scanner sc = null;
+	//標準入力から読み込んで行のリストを返す
+	public static String[] readLines(String encoding) {
 		try {
-			sc = new Scanner(System.in, encoding);
+			Scanner sc = new Scanner(System.in, encoding);
+			List<String> lines = new ArrayList<String>();
+			while (sc.hasNext()) {
+				lines.add(sc.nextLine());
+			}
+			return lines.toArray(new String[0]);
 		} catch (IllegalArgumentException e) {
-			System.err.printf("エラー: %s: このエンコーディングはサポートされていません%n", encoding);
-			System.exit(1);
+			throw new AssembleException(String.format("%s: このエンコーディングはサポートされていません", encoding));
 		}
-		List<String[]> list = new ArrayList<String[]>();
-		while (sc.hasNext()) {
-			String line = sc.nextLine().toLowerCase() + "#";
-			line = line.substring(0, line.indexOf('#'));
-			list.add(line.trim().split("[\\s,]+"));
-		}
-		return list.toArray(new String[0][]);
 	}
 	
-	int[] parse(String[][] ts) throws ParseException {
-		int n = ts.length;
+	//linesからコメントの除去・ラベルの抽出・文字列のトークン化を行う
+	public static Statement[] lex(String[] lines) {
+		List<Statement> list = new ArrayList<Statement>();
+		List<String> labels = new ArrayList<String>();
+		for (int lineID = 0; lineID < lines.length; lineID++) {
+			Statement s = new Statement(lineID, lines[lineID]);
+			labels.addAll(asList(s.labels));
+			if (s.tokens.length > 0) {
+				s.labels = labels.toArray(new String[0]);
+				list.add(s);
+				labels.clear();
+			}
+		}
+		if (labels.size() > 0) {
+			throw new AssembleException("ラベル位置が不正です");
+		}
+		return list.toArray(new Statement[0]);
+	}
+	
+	//{}の中身を返す
+	public static String[] contents(Parser p) {
+		List<String> list = new ArrayList<String>();
+		p.eat("{");
+		int depth = 1;
+		while (depth > 0) {
+			String s = p.next();
+			list.add(s);
+			if (s.equals("{")) {
+				depth++;
+			} else if (s.equals("}")) {
+				depth--;
+			}
+		}
+		list.remove(list.size() - 1);
+		return list.toArray(new String[0]);
+	}
+	
+	//ラベルの置換
+	public static void replace(String[] ss, Map<String, Integer> labels) {
+		for (int i = 0; i < ss.length; i++) {
+			if (labels.containsKey(ss[i])) {
+				ss[i] = "" + labels.get(ss[i]);
+			}
+		}
+	}
+	
+	//文字列の置換
+	public static void replace(String[] ss, String s, String t) {
+		for (int i = 0; i < ss.length; i++) {
+			if (ss[i].equals(s)) {
+				ss[i] = t;
+			}
+		}
+	}
+	
+	//マクロを処理する
+	public static Pair<Define[], Statement[]> macro(Statement[] ss) {
 		Map<String, Integer> labels = new HashMap<String, Integer>();
-		List<Integer> lines = new ArrayList<Integer>();
-		List<String[]> list = new ArrayList<String[]>();
-		boolean ok = true;
-		for (int i = 0; i < n; i++) {
-			String[] ss = ts[i];
-			int m = ss.length, j;
-			for (j = 0; j < m && ss[j].endsWith(":"); j++) {
-				String label = ss[j].substring(0, ss[j].length() - 1);
+		Map<String, String[]> map = new HashMap<String, String[]>();
+		List<Statement> list = new ArrayList<Statement>();
+		List<Define> defs = new ArrayList<Define>();
+		for (Statement s : ss) {
+			for (String label : s.labels) {
 				if (labels.containsKey(label)) {
-					throw new ParseException(String.format("%d行目: ラベル \"%s\" が複数回出現", i + 1, label));
+					throw new AssembleException(s.createMessage(String.format("%s: ラベルが複数回出現", label)));
 				}
-				labels.put(label, lines.size());
-				ok = false;
+				labels.put(label, list.size());
 			}
-			if (j < m && ss[0].length() > 0) {
-				lines.add(i + 1);
-				list.add(copyOfRange(ss, j, m));
-				ok = true;
+			s.replace(map);
+			try {
+				Parser p = new Parser(s.tokens);
+				String t = p.next();
+				if (t.equals(".define")) {
+					if (s.labels.length > 0) {
+						throw new AssembleException(s.createMessage("ラベル位置が不正です"));
+					}
+					if (!p.crt().equals("{")) {
+						map.put(p.next(), p.rest());
+					} else {
+						defs.add(new Define(list.size(), contents(p), contents(p)));
+						p.end();
+					}
+				} else if (t.equals(".skip")) {
+					int d = p.nextImm();
+					p.end();
+					if (d <= 0 || d >= 1 << 20) {
+						throw new ParseException();
+					}
+					list.addAll(nCopies(d, s));
+				} else {
+					s.isOp = true;
+					list.add(s);
+				}
+			} catch (ParseException e) {
+				throw new AssembleException(s.createMessage("マクロ引数が不正です"));
 			}
 		}
-		if (!ok) {
-			throw new ParseException(String.format("%d行目: 無効なラベル", n));
+		int pc = 0;
+		for (Statement s : list) {
+			replace(s.tokens, labels);
+			replace(s.tokens, "%pc", "" + pc);
+			try {
+				Parser p = new Parser(s.tokens);
+				String t = p.next();
+				if (t.equals(".int")) {
+					s.isOp = false;
+					s.binary = p.nextImm();
+					p.end();
+				} else if (t.equals(".float")) {
+					s.isOp = false;
+					try {
+						s.binary = ftoi(Float.parseFloat(s.str.substring(6).trim()));
+					} catch (NumberFormatException e) {
+						throw new ParseException();
+					}
+				}
+			} catch (ParseException e) {
+				throw new AssembleException(s.createMessage("マクロ引数が不正です"));
+			}
+			pc++;
 		}
-		CPU cpu = new CPU();
-		return cpu.assemble(labels, toints(lines.toArray(new Integer[0])), list.toArray(new String[0][]));
+		for (Define def : defs) {
+			replace(def.ss, labels);
+			replace(def.st, labels);
+		}
+		return Pair.make(defs.toArray(new Define[0]), list.toArray(new Statement[0]));
 	}
 	
-	void run(String encode, boolean vhdl) {
-		try {
-			int[] binary = parse(lex(encode));
-			if (vhdl) {
-				for (int i : binary) {
-					System.out.printf("\"%s\",%n", toBinary(i));
+	private static int rec(CPU cpu, Parser p, int pc, Define[] defs, int i) {
+		AssembleException ex = null;
+		while (i >= 0) {
+			if (defs[i].from <= pc) {
+				try {
+					p.init();
+					String[] ss = p.match(defs[i].ss, defs[i].st);
+					replace(ss, "%pc", "" + pc);
+					return rec(cpu, new Parser(ss), pc, defs, i - 1);
+				} catch (ParseException e) {
+				} catch (AssembleException e) {
+					if (ex == null) ex = e;
 				}
-			} else {
-				writeBinary(new DataOutputStream(System.out), binary);
 			}
+			i--;
+		}
+		try {
+			p.init();
+			return cpu.getBinary(p);
 		} catch (ParseException e) {
-			System.err.println("エラー: " + e.getMessage());
+		} catch (AssembleException e) {
+			if (ex == null) ex = e;
+		}
+		if (ex != null) throw ex;
+		throw new ParseException();
+	}
+	
+	//linesをcpu向けにアセンブルし、命令列を返す
+	public static Statement[] assemble(CPU cpu, String[] lines) {
+		try {
+			Statement[] ss = lex(lines);
+			Pair<Define[], Statement[]> pair = macro(ss);
+			Define[] ds = pair.first;
+			ss = pair.second;
+			int pc = 0;
+			for (Statement s : ss) {
+				if (s.isOp) {
+					try {
+						s.binary = rec(cpu, new Parser(s.tokens), pc, ds, ds.length - 1);
+					} catch (ParseException e) {
+						throw new AssembleException(s.createMessage("命令を解釈できません"));
+					} catch (AssembleException e) {
+						throw new AssembleException(s.createMessage(e.getMessage()));
+					}
+				}
+				pc++;
+			}
+			return ss;
+		} catch (AssembleException e) {
+			System.err.printf("エラー: %s%n", e.getMessage());
+			System.exit(1);
+			throw e;
 		}
 	}
 	
 	public static void main(String[] args) {
-		String encode = "UTF-8";
+		String encoding = "UTF-8";
 		boolean vhdl = false;
 		boolean ok = true;
 		for (int i = 0; i < args.length; i++) {
 			if (args[i].equals("-encoding")) {
-				encode = args[++i];
+				encoding = args[++i];
 			} else if (args[i].equals("-vhdl")) {
 				vhdl = true;
 			} else {
@@ -88,7 +225,20 @@ public class Assembler {
 			System.err.println("使い方: java asm.Assembler [-encoding s] [-vhdl] [< src] [> dst]");
 			return;
 		}
-		new Assembler().run(encode, vhdl);
+		CPU cpu = new CPU();
+		Statement[] ss = assemble(cpu, readLines(encoding));
+		int n = ss.length;
+		int[] binary = new int[n];
+		for (int i = 0; i < n; i++) {
+			binary[i] = ss[i].binary;
+		}
+		if (vhdl) {
+			for (int i : binary) {
+				System.out.printf("\"%s\",%n", toBinary(i));
+			}
+		} else {
+			writeBinary(new DataOutputStream(System.out), binary);
+		}
 	}
 	
 }

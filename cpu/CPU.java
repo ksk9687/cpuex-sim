@@ -1,107 +1,165 @@
 package cpu;
 
 import static util.Utils.*;
-import asm.*;
 import java.util.*;
+import asm.*;
 
 public class CPU {
 	
-	public int parse(Map<String, Integer> labels, String s) {
-		if (labels != null && labels.containsKey(s)) return labels.get(s);
-		if (s.startsWith("0x")) return parseHex(s.substring(2));
-		if (s.startsWith("0b")) return parseBinary(s.substring(2));
-		if (s.indexOf('.') >= 0) return ftoi(Float.parseFloat(s));
-		return Integer.parseInt(s);
+	public HashMap<String, Integer> iregs = new HashMap<String, Integer>();
+	public HashMap<String, Integer> fregs = new HashMap<String, Integer>();
+	public HashMap<String, Integer> allregs = new HashMap<String, Integer>();
+	
+	public CPU() {
+		for (int i = 0; i < 8; i++) iregs.put("$i" + i, i);
+		for (int i = 8; i < 16; i++) iregs.put("$i" + i, i + 16);
+		for (int i = 0; i < 16; i++) fregs.put("$f" + i, i + 8);
+		allregs.putAll(iregs);
+		allregs.putAll(fregs);
 	}
 	
-	public int parse(Map<String, Integer> labels, String s, int len, int offset, boolean signExt, int line) {
-		int i;
-		if (labels != null && labels.containsKey(s)) i = labels.get(s) - offset;
-		else if (s.startsWith("0x")) i = parseHex(s.substring(2));
-		else if (s.startsWith("0b")) i = parseBinary(s.substring(2));
-		else i = Integer.parseInt(s);
+	public int typeR(int op, int rs, int rt, int rd) {
+		return op << 26 | rs << 21 | rt << 16 | rd << 11;
+	}
+	
+	public int typeI(int op, int rs, int rt, int imm) {
+		return op << 26 | rs << 21 | rt << 16 | imm;
+	}
+	
+	public int typeJ(int op, int imm) {
+		return op << 26 | imm;
+	}
+	
+	public static int imm(int i, int len, boolean signExt) {
 		if (i < 0) {
-			if (!signExt || i <= (-1 ^ 1 << (len - 1))) throw new NumberFormatException();
+			if (!signExt || i <= (-1 ^ 1 << (len - 1))) {
+				throw new AssembleException("オペランドの値が不正です");
+			}
 		} else {
 			if (i >= 1 << len) throw new NumberFormatException();
 			if (signExt && i >= 1 << (len - 1)) {
-				System.err.printf("警告: %d行目: %s: 符号拡張により負の数となります%n", line, s);
+				//行数も表示
+				System.err.printf("警告: %s%n", "符号拡張により負の数となります");
 			}
 		}
 		return getBits(i, len - 1, 0);
 	}
 	
-	public int parseRegister(String s) {
-		if (!s.startsWith("$")) {
-			throw new NumberFormatException();
+	public static int reg(Map<String, Integer> regs, String reg) {
+		if (!regs.containsKey(reg)) {
+			throw new AssembleException("レジスタが不正です");
 		}
-		return parse(null, s.substring(1), 5, 0, false, 0);
+		return regs.get(reg);
 	}
 	
-	public int[] assemble(Map<String, Integer> labels, int[] lines, String[][] ts) throws ParseException {
-		int n = lines.length;
-		int[] binary = new int[n];
-		for (int i = 0; i < n; i++) {
-			String[] ss = ts[i];
-			int line = lines[i];
-			int j = 1;
-			try {
-				if (ss[0].equals("add")) {
-					binary[i] = 0 << 26 | parseRegister(ss[j++]) << 21 | parseRegister(ss[j++]) << 16 | parseRegister(ss[j++]) << 11;
-				} else if (ss[0].equals("addi")) {
-					binary[i] = 1 << 26 | parseRegister(ss[j++]) << 21 | parseRegister(ss[j++]) << 16 | parse(labels, ss[j++], 16, 0, true, line);
-				} else if (ss[0].equals("sub")) {
-					binary[i] = 2 << 26 | parseRegister(ss[j++]) << 21 | parseRegister(ss[j++]) << 16 | parseRegister(ss[j++]) << 11;
-				} else if (ss[0].equals("srl")) {
-					binary[i] = 3 << 26 | parseRegister(ss[j++]) << 21 | parseRegister(ss[j++]) << 16 | parse(null, ss[j++], 5, 0, false, line);
-				} else if (ss[0].equals("sll")) {
-					binary[i] = 4 << 26 | parseRegister(ss[j++]) << 21 | parseRegister(ss[j++]) << 16 | parse(null, ss[j++], 5, 0, false, line);
-				} else if (ss[0].equals("fadd")) {
-					binary[i] = 5 << 26 | parseRegister(ss[j++]) << 21 | parseRegister(ss[j++]) << 16 | parseRegister(ss[j++]) << 11;
-				} else if (ss[0].equals("fsub")) {
-					binary[i] = 6 << 26 | parseRegister(ss[j++]) << 21 | parseRegister(ss[j++]) << 16 | parseRegister(ss[j++]) << 11;
-				} else if (ss[0].equals("fmul")) {
-					binary[i] = 7 << 26 | parseRegister(ss[j++]) << 21 | parseRegister(ss[j++]) << 16 | parseRegister(ss[j++]) << 11;
-				} else if (ss[0].equals("finv")) {
-					binary[i] = 8 << 26 | parseRegister(ss[j++]) << 21 | parseRegister(ss[j++]) << 11;
-				} else if (ss[0].equals("load")) {
-					binary[i] = 9 << 26 | parseRegister(ss[j++]) << 21 | parseRegister(ss[j++]) << 16 | parse(labels, ss[j++], 16, 0, true, line);
-				} else if (ss[0].equals("li")) {
-					binary[i] = 10 << 26 | parseRegister(ss[j++]) << 16 | parse(labels, ss[j++], 16, 0, true, line);
-				} else if (ss[0].equals("store")) {
-					binary[i] = 11 << 26 | parseRegister(ss[j++]) << 21 | parseRegister(ss[j++]) << 16 | parse(labels, ss[j++], 16, 0, true, line);
-				} else if (ss[0].equals("cmp")) {
-					binary[i] = 12 << 26 | parseRegister(ss[j++]) << 21 | parseRegister(ss[j++]) << 16 | parseRegister(ss[j++]) << 11;
-				} else if (ss[0].equals("jmp")) {
-					binary[i] = 13 << 26 | parseRegister(ss[j++]) << 21 | parse(null, ss[j++], 3, 0, false, line) << 16 | parse(labels, ss[j++], 16, i, true, line);
-				} else if (ss[0].equals("jal")) {
-					binary[i] = 14 << 26 | parse(labels, ss[j++], 26, 0, false, line);
-				} else if (ss[0].equals("jr")) {
-					binary[i] = 15 << 26 | parseRegister(ss[j++]) << 21;
-				} else if (ss[0].equals("read")) {
-					binary[i] = 16 << 26 | parseRegister(ss[j++]) << 21;
-				} else if (ss[0].equals("write")) {
-					binary[i] = 17 << 26 | parseRegister(ss[j++]) << 21;
-				} else if (ss[0].equals("nop")) {
-					binary[i] = 18 << 26;
-				} else if (ss[0].equals("halt")) {
-					binary[i] = 19 << 26;
-				} else if (ss[0].equals("set")) {
-					//これじゃだめぽ
-					binary[i] = 10 << 26 | parseRegister(ss[j++]) << 16 | parse(labels, ss[j++], 16, 0, true, line);
-				} else if (ss[0].equals("raw")) {
-					binary[i] = parse(labels, ss[j++]);
-				} else {
-					throw new ParseException(String.format("%d行目: %s: 不正な命令", line, ss[0]));
-				}
-				if (j != ss.length) throw new ArrayIndexOutOfBoundsException();
-			} catch (ArrayIndexOutOfBoundsException e) {
-				throw new ParseException(String.format("%d行目: 不正なオペランド数", line));
-			} catch (NumberFormatException e) {
-				throw new ParseException(String.format("%d行目: %s: 不正なオペランド", line, ss[j - 1]));
-			}
+	public int getBinary(Parser p) {
+		String s = p.next();
+		if (s.equals("add")) {
+			String rs = p.nextReg();
+			String rt = p.nextReg();
+			String rd = p.nextReg();
+			p.end();
+			return typeR(0, reg(iregs, rs), reg(iregs, rt), reg(iregs, rd));
+		} else if (s.equals("addi")) {
+			String rs = p.nextReg();
+			String rt = p.nextReg();
+			int i = p.nextImm();
+			p.end();
+			return typeI(1, reg(allregs, rs), reg(allregs, rt), imm(i, 16, true));
+		} else if (s.equals("sub")) {
+			String rs = p.nextReg();
+			String rt = p.nextReg();
+			String rd = p.nextReg();
+			p.end();
+			return typeR(2, reg(iregs, rs), reg(iregs, rt), reg(iregs, rd));
+		} else if (s.equals("rl")) {
+			String rs = p.nextReg();
+			String rt = p.nextReg();
+			int i = p.nextImm();
+			p.end();
+			return typeI(3, reg(allregs, rs), reg(allregs, rt), imm(i, 5, false));
+		} else if (s.equals("sll")) {
+			String rs = p.nextReg();
+			String rt = p.nextReg();
+			int i = p.nextImm();
+			p.end();
+			return typeI(4, reg(allregs, rs), reg(allregs, rt), imm(i, 5, false));
+		} else if (s.equals("fadd")) {
+			String rs = p.nextReg();
+			String rt = p.nextReg();
+			String rd = p.nextReg();
+			p.end();
+			return typeR(5, reg(fregs, rs), reg(fregs, rt), reg(fregs, rd));
+		} else if (s.equals("fsub")) {
+			String rs = p.nextReg();
+			String rt = p.nextReg();
+			String rd = p.nextReg();
+			p.end();
+			return typeR(6, reg(fregs, rs), reg(fregs, rt), reg(fregs, rd));
+		} else if (s.equals("fmul")) {
+			String rs = p.nextReg();
+			String rt = p.nextReg();
+			String rd = p.nextReg();
+			p.end();
+			return typeR(7, reg(fregs, rs), reg(fregs, rt), reg(fregs, rd));
+		} else if (s.equals("finv")) {
+			String rs = p.nextReg();
+			String rd = p.nextReg();
+			p.end();
+			return typeR(8, reg(fregs, rs), 0, reg(fregs, rd));
+		} else if (s.equals("load")) {
+			String rs = p.nextReg();
+			String rt = p.nextReg();
+			int i = p.nextImm();
+			p.end();
+			return typeI(9, reg(allregs, rs), reg(allregs, rt), imm(i, 16, true));
+		} else if (s.equals("li")) {
+			String rt = p.nextReg();
+			int i = p.nextImm();
+			p.end();
+			return typeI(10, 0, reg(allregs, rt), imm(i, 16, true));
+		} else if (s.equals("store")) {
+			String rs = p.nextReg();
+			String rt = p.nextReg();
+			int i = p.nextImm();
+			p.end();
+			return typeI(11, reg(allregs, rs), reg(allregs, rt), imm(i, 16, true));
+		} else if (s.equals("cmp")) {
+			String rs = p.nextReg();
+			String rt = p.nextReg();
+			String rd = p.nextReg();
+			p.end();
+			return typeR(12, reg(allregs, rs), reg(allregs, rt), reg(allregs, rd));
+		} else if (s.equals("_jmp")) {
+			String rs = p.nextReg();
+			int t = p.nextImm();
+			int i = p.nextImm();
+			p.end();
+			return typeI(13, reg(allregs, rs), imm(t, 3, false), imm(i, 16, true));
+		} else if (s.equals("jal")) {
+			int i = p.nextImm();
+			p.end();
+			return typeJ(14, imm(i, 26, false));
+		} else if (s.equals("jr")) {
+			String rs = p.nextReg();
+			p.end();
+			return typeI(15, reg(allregs, rs), 0, 0);
+		} else if (s.equals("read")) {
+			String rs = p.nextReg();
+			p.end();
+			return typeI(16, reg(allregs, rs), 0, 0);
+		} else if (s.equals("write")) {
+			String rs = p.nextReg();
+			p.end();
+			return typeI(17, reg(allregs, rs), 0, 0);
+		} else if (s.equals("nop")) {
+			p.end();
+			return typeJ(18, 0);
+		} else if (s.equals("halt")) {
+			p.end();
+			return typeJ(19, 0);
+		} else {
+			throw new ParseException();
 		}
-		return binary;
 	}
-	
 }

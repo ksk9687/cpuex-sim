@@ -16,10 +16,10 @@
 LOOP:
 	cmp $n $zero $t		# $t = cmp $n 0
 	ble $t END
-	add $a $b $t		# $t = $a + $b
-	mov $b $a			# $a = $b
-	mov $t $b			# $b = $t
-	addi $n $n -1		# $n = $n - 1
+	$t = $a + $b
+	$a = $b
+	$b = $t
+	$n = $n - 1
 	b LOOP
 END:
 	write $a

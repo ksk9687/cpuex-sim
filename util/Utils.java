@@ -6,6 +6,9 @@ import java.util.*;
 
 public class Utils {
 	
+	public static void main(String[] args) {
+	}
+	
 	//high downto low
 	public static int getBits(int i, int high, int low) {
 		if (high == 31 && low == 0) return i;
@@ -35,6 +38,19 @@ public class Utils {
 	public static int parseBinary(String s) {
 		if (s.length() > 32) throw new NumberFormatException(s);
 		return (int)Long.parseLong(s, 2);
+	}
+	
+	public static int parseUInt(String s) {
+		if (s.indexOf('-') >= 0) throw new NumberFormatException();
+		if (s.startsWith("0x")) return parseHex(s.substring(2));
+		if (s.startsWith("0b")) return parseBinary(s.substring(2));
+		return (int)Long.parseLong(s);
+	}
+	
+	public static int parseInt(String s) {
+		if (s.startsWith("-")) return -parseUInt(s.substring(1));
+		if (s.startsWith("+")) return parseUInt(s.substring(1));
+		return parseUInt(s);
 	}
 	
 	public static int[] readBinary(DataInputStream in) {
@@ -82,7 +98,7 @@ public class Utils {
 		for (int i = 0; i < n; i++) is[i] = Is[i];
 		return is;
 	}
-	
+		
 	public static void debug(Object...os) {
 		System.err.println(deepToString(os));
 	}
