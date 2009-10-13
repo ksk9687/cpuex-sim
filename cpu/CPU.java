@@ -54,7 +54,19 @@ public class CPU {
 	
 	public int getBinary(Parser p) {
 		String s = p.next();
-		if (s.equals("add")) {
+		if (s.equals("_add")) {
+			String rs = p.nextReg();
+			String rt = p.nextReg();
+			String rd = p.nextReg();
+			p.end();
+			return typeR(0, reg(allregs, rs), reg(allregs, rt), reg(allregs, rd));
+		} else if (s.equals("_sub")) {
+			String rs = p.nextReg();
+			String rt = p.nextReg();
+			String rd = p.nextReg();
+			p.end();
+			return typeR(2, reg(allregs, rs), reg(allregs, rt), reg(allregs, rd));
+		} else if (s.equals("add")) {
 			String rs = p.nextReg();
 			String rt = p.nextReg();
 			String rd = p.nextReg();
@@ -162,4 +174,5 @@ public class CPU {
 			throw new ParseException();
 		}
 	}
+	
 }
