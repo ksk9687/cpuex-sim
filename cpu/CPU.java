@@ -11,9 +11,8 @@ public class CPU {
 	public HashMap<String, Integer> allregs = new HashMap<String, Integer>();
 	
 	public CPU() {
-		for (int i = 0; i < 8; i++) iregs.put("$i" + i, i);
-		for (int i = 8; i < 16; i++) iregs.put("$i" + i, i + 16);
-		for (int i = 0; i < 16; i++) fregs.put("$f" + i, i + 8);
+		for (int i = 0; i < 16; i++) iregs.put("$i" + i, i + 16);
+		for (int i = 0; i < 16; i++) fregs.put("$f" + i, i);
 		allregs.putAll(iregs);
 		allregs.putAll(fregs);
 	}
