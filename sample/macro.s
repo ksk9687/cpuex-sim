@@ -45,6 +45,7 @@
 .define { store %Reg, %Reg } { store %1, 0(%2) }
 .define { store %Reg, %Imm } { store %1, %2($zero) }
 .define { cmp %Reg, %Reg, %Reg } { cmp %1 %2 %3 }
+.define { fcmp %Reg, %Reg, %Reg } { fcmp %1 %2 %3 }
 .define { jmp %Reg, %Imm, %Imm } { jmp %1 %2 %3 }
 .define { mov %Reg, %Reg } { mov %1 %2 }
 .define { neg %Reg, %Reg } { neg %1 %2 }
@@ -87,10 +88,18 @@
 .define { [%Reg] = %Reg } { store %2, [%1] }
 .define { [%Imm] = %Reg } { store %2, [%1] }
 .define { %Reg = cmp %Reg %Reg } { cmp %2, %3, %1 }
+.define { %Reg = fcmp %Reg %Reg } { fcmp %2, %3, %1 }
 .define { %Reg = read } { read %1 }
 .define { %Reg = %Reg } { mov %2, %1 }
 .define { %Reg = -%Reg } { neg %2, %1 }
 .define { %Reg = -%Reg } { fneg %2, %1 }
+.define { %Reg += %Reg } { %1 = %1 + %2 }
+.define { %Reg += %Imm } { %1 = %1 + %2 }
+.define { %Reg -= %Reg } { %1 = %1 - %2 }
+.define { %Reg -= %Imm } { %1 = %1 - %2 }
+.define { %Reg++ } { %1 += 1 }
+.define { %Reg-- } { %1 -= 1 }
+.define { %Reg *= %Reg } { %1 = %1 * %2 }
 
 #スタックとヒープの初期化
 	li      0x7fff, $hp

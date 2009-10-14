@@ -10,19 +10,7 @@ import util.*;
 
 public class Assembler {
 	
-	//標準入力から読み込んで行のリストを返す
-	public static String[] readLines(String encoding) {
-		try {
-			Scanner sc = new Scanner(System.in, encoding);
-			List<String> lines = new ArrayList<String>();
-			while (sc.hasNext()) {
-				lines.add(sc.nextLine());
-			}
-			return lines.toArray(new String[0]);
-		} catch (IllegalArgumentException e) {
-			throw new AssembleException(String.format("%s: このエンコーディングはサポートされていません", encoding));
-		}
-	}
+	public static Statement s;
 	
 	//linesからコメントの除去・ラベルの抽出・文字列のトークン化を行う
 	public static Statement[] lex(String[] lines) {
@@ -190,6 +178,7 @@ public class Assembler {
 			for (Statement s : ss) {
 				if (s.isOp) {
 					try {
+						Assembler.s = s;
 						s.binary = rec(cpu, new Parser(s.tokens), pc, ds, ds.length - 1);
 					} catch (ParseException e) {
 						throw new AssembleException(s.createMessage("命令を解釈できません"));
@@ -209,24 +198,30 @@ public class Assembler {
 	
 	public static void main(String[] args) {
 		String encoding = "UTF-8";
+		String cpu = CPU.DEFAULT;
 		boolean vhdl = false;
 		boolean ok = true;
-		for (int i = 0; i < args.length; i++) {
-			if (args[i].equals("-encoding")) {
-				encoding = args[++i];
-			} else if (args[i].equals("-vhdl")) {
-				vhdl = true;
-			} else {
-				ok = false;
-				break;
+		try {
+			for (int i = 0; i < args.length; i++) {
+				if (args[i].equals("-encoding")) {
+					encoding = args[++i];
+				} else if (args[i].equals("-vhdl")) {
+					vhdl = true;
+				} else if (args[i].equals("-cpu")) {
+					cpu = args[++i];
+				} else {
+					ok = false;
+					break;
+				}
 			}
+		} catch (ArrayIndexOutOfBoundsException e) {
+			ok = false;
 		}
 		if (!ok) {
-			System.err.println("使い方: java asm.Assembler [-encoding s] [-vhdl] [< src] [> dst]");
+			System.err.println("使い方: java asm.Assembler [-encoding s] [-cpu s] [-vhdl] [< src] [> dst]");
 			return;
 		}
-		CPU cpu = new CPU();
-		Statement[] ss = assemble(cpu, readLines(encoding));
+		Statement[] ss = assemble(CPU.loadCPU(cpu), readLines(encoding));
 		int n = ss.length;
 		int[] binary = new int[n];
 		for (int i = 0; i < n; i++) {

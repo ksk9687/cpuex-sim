@@ -2,157 +2,74 @@ package sim;
 
 import static util.Utils.*;
 import java.io.*;
+import cpu.*;
 
 public class Simulator {
 	
-	int cmp(int a, int b) {
-		return a > b ? 4 : a == b ? 2 : 1;
+	private DataInputStream in;
+	private DataOutputStream out;
+	
+	public int read() {
+		try {
+			return in.readInt();
+		} catch (IOException e) {
+			throw new ExecuteException(e.getMessage());
+		}
 	}
 	
-	int REGISTERSIZE = 32;
-	int MEMORYSIZE = 1 << 20;
-	
-	void run(int[] bin) {
-		DataInputStream in = new DataInputStream(System.in);
-		int[] register = new int[REGISTERSIZE];
-		int[] memory = new int[MEMORYSIZE];
-		for (int i = 0; i < bin.length; i++) memory[i] = bin[i];
-		DataOutputStream out = new DataOutputStream(System.out);
+	public void write(int i) {
 		try {
-			for (int pc = 0;;) {
-				if (pc < 0 || pc >= MEMORYSIZE) {
-					throw new RuntimeException(String.format("IllegalPC: %08x", pc));
-				}
-				int ope = memory[pc];
-				int opecode = ope >>> 26;
-				int rs = ope >>> 21 & (REGISTERSIZE - 1);
-				int rt = ope >>> 16 & (REGISTERSIZE - 1);
-				int rd = ope >>> 11 & (REGISTERSIZE - 1);
-				int immediate = ope & ((1 << 16) - 1);
-				int address = ope & ((1 << (26)) - 1);
-				switch (opecode) {
-				case 0:
-					//add
-					register[rd] = register[rs] + register[rt];
-					pc++;
-					break;
-				case 1:
-					//addi
-					register[rt] = register[rs] + signExt(immediate, 16);
-					pc++;
-					break;
-				case 2:
-					//sub
-					register[rd] = register[rs] - register[rt];
-					pc++;
-					break;
-				case 3:
-					//srl
-					register[rt] = register[rs] >>> immediate;
-					pc++;
-					break;
-				case 4:
-					//sll
-					register[rt] = register[rs] << immediate;
-					pc++;
-					break;
-				case 5:
-					//fadd
-					register[rd] = ftoi(itof(register[rs]) + itof(register[rt]));
-					pc++;
-					break;
-				case 6:
-					//fsub
-					register[rd] = ftoi(itof(register[rs]) - itof(register[rt]));
-					pc++;
-					break;
-				case 7:
-					//fmul
-					register[rd] = ftoi(itof(register[rs]) * itof(register[rt]));
-					pc++;
-					break;
-				case 8:
-					//finv
-					register[rd] = ftoi(1.0f / itof(register[rs]));
-					pc++;
-					break;
-				case 9:
-					//load
-					int p = register[rs] + signExt(immediate, 16);
-					if (p < 0 || p >= MEMORYSIZE) {
-						throw new RuntimeException(String.format("IllegalMemory: %08x", p));
-					}
-					register[rt] = memory[p];
-					pc++;
-					break;
-				case 10:
-					//li
-					register[rt] = signExt(immediate, 16);
-					pc++;
-					break;
-				case 11:
-					//store
-					p = register[rs] + signExt(immediate, 16);
-					memory[p] = register[rt];
-					pc++;
-					break;
-				case 12:
-					//cmp
-					register[rd] = cmp(register[rs], register[rt]);
-					pc++;
-					break;
-				case 13:
-					//jmp
-					if ((register[rs] & rt) == 0) {
-						pc += signExt(immediate, 16);
-					} else {
-						pc++;
-					}
-					break;
-				case 14:
-					//jal
-					register[31] = pc + 1;
-					pc = address;
-					break;
-				case 15:
-					//jr
-					pc = register[rs];
-					break;
-				case 16:
-					//read
-					register[rs] = in.readInt();
-					pc++;
-					break;
-				case 17:
-					//write
-					out.writeInt(register[rs]);
-					pc++;
-					break;
-				case 18:
-					//nop
-					pc++;
-					break;
-				case 19:
-					//halt
-					out.flush();
-					return;
-				default:
-					throw new RuntimeException(String.format("IllegalOperation: %08x", ope));
-				}
-			}
+			out.writeInt(i);
+			out.flush();
 		} catch (IOException e) {
-			throw new RuntimeException(e);
+			throw new ExecuteException(e.getMessage());
+		}
+	}
+	
+	public void run(CPU cpu, int[] bin) {
+		in = new DataInputStream(System.in);
+		out = new DataOutputStream(System.out);
+		cpu.init(this, bin);
+		try {
+			for (;;) {
+				cpu.clock();
+			}
+		} catch (ExecuteException e) {
+			System.err.println(e.getMessage());
 		}
 	}
 	
 	public static void main(String[] args) {
-		DataInputStream in;
+		String cpu = CPU.DEFAULT;
+		String file = null;
+		boolean ok = true;
 		try {
-			in = new DataInputStream(new FileInputStream(args[0]));
+			for (int i = 0; i < args.length; i++) {
+				if (args[i].equals("-cpu")) {
+					cpu = args[++i];
+				} else if (args[i].charAt(0) != '-') {
+					file = args[i];
+				}
+			}
+		} catch (ArrayIndexOutOfBoundsException e) {
+			ok = false;
+		}
+		if (file == null) {
+			ok = false;
+		}
+		if (!ok) {
+			System.err.println("使い方: java sim.Simulator [-cpu s] bin [< input] [> output]");
+			return;
+		}
+		int[] bin;
+		try {
+			DataInputStream in = new DataInputStream(new FileInputStream(args[0]));
+			bin = readBinary(in);
 		} catch (IOException e) {
+			failWith("指定されたファイルが見つかりません");
 			throw new RuntimeException(e);
 		}
-		new Simulator().run(readBinary(in));
+		new Simulator().run(CPU.loadCPU(cpu), bin);
 	}
 	
 }
