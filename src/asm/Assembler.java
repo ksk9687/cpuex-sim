@@ -4,7 +4,6 @@ import static java.util.Arrays.*;
 import static java.util.Collections.*;
 import static util.Utils.*;
 import cpu.*;
-import java.io.*;
 import java.util.*;
 import util.*;
 
@@ -196,49 +195,14 @@ public class Assembler {
 		}
 	}
 	
-	public static void main(String[] args) {
-		String encoding = "UTF-8";
-		String cpuName = CPU.DEFAULT;
-		boolean vhdl = false;
-		boolean ok = true;
-		try {
-			for (int i = 0; i < args.length; i++) {
-				if (args[i].equals("-encoding")) {
-					encoding = args[++i];
-				} else if (args[i].equals("-vhdl")) {
-					vhdl = true;
-				} else if (args[i].equals("-cpu")) {
-					cpuName = args[++i];
-				} else {
-					ok = false;
-					break;
-				}
-			}
-		} catch (ArrayIndexOutOfBoundsException e) {
-			ok = false;
+	//linesをcpu向けにアセンブルし、バイナリを返す
+	public static int[] assembleToBinary(CPU cpu, String[] lines) {
+		Statement[] ss = Assembler.assemble(cpu, lines);
+		int[] bin = new int[ss.length];
+		for (int i = 0; i < ss.length; i++) {
+			bin[i] = ss[i].binary;
 		}
-		if (!ok) {
-			System.err.println("使い方: java asm.Assembler [-encoding s] [-cpu s] [-vhdl] [< src] [> dst]");
-			return;
-		}
-		CPU cpu = CPU.loadCPU(cpuName);
-		String[] lines = readLines(encoding);
-		Statement[] ss = assemble(cpu, lines);
-		int n = ss.length;
-		int[] binary = new int[n];
-		for (int i = 0; i < n; i++) {
-			binary[i] = ss[i].binary;
-		}
-		if (vhdl) {
-			for (int i : binary) {
-				System.out.printf("\"%s\",%n", toBinary(i));
-			}
-		} else {
-			int[] bin = new int[binary.length + 1];
-			System.arraycopy(binary, 0, bin, 1, binary.length);
-			bin[0] = binary.length;
-			writeBinary(new DataOutputStream(System.out), bin);
-		}
+		return bin;
 	}
 	
 }

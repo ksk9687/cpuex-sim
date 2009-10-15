@@ -77,20 +77,6 @@ public class Utils {
 		}
 	}
 	
-	public static String[] readLines(String encoding) {
-		try {
-			Scanner sc = new Scanner(System.in, encoding);
-			List<String> lines = new ArrayList<String>();
-			while (sc.hasNext()) {
-				lines.add(sc.nextLine());
-			}
-			return lines.toArray(new String[0]);
-		} catch (IllegalArgumentException e) {
-			failWith(String.format("%s: このエンコーディングはサポートされていません%n", encoding));
-			throw e;
-		}
-	}
-	
 	public static float itof(int i) {
 		return Float.intBitsToFloat(i);
 	}

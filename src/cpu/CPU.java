@@ -11,8 +11,8 @@ public abstract class CPU {
 	
 	public static CPU loadCPU(String name) {
 		try {
-			Class<CPU> cpu = (Class<CPU>)Class.forName(name);
-			return cpu.newInstance();
+			Object o = Class.forName(name).newInstance();
+			return (CPU)o;
 		} catch (Exception e) {
 			failWith(String.format("%s: CPUが見つかりませんでした", name));
 			throw new RuntimeException(e);
@@ -58,5 +58,9 @@ public abstract class CPU {
 	}
 	
 	public abstract void clock();
+	
+	public SimFrame[] createFrames() {
+		return new SimFrame[0];
+	}
 	
 }

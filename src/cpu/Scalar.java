@@ -1,7 +1,11 @@
 package cpu;
 
+import static java.util.Arrays.*;
 import static util.Utils.*;
+import java.awt.*;
 import java.util.*;
+import javax.swing.*;
+import javax.swing.table.*;
 import sim.*;
 import asm.*;
 
@@ -10,10 +14,12 @@ public class Scalar extends CPU {
 	protected HashMap<String, Integer> iregs = new HashMap<String, Integer>();
 	protected HashMap<String, Integer> fregs = new HashMap<String, Integer>();
 	protected HashMap<String, Integer> allregs = new HashMap<String, Integer>();
+	protected String[] regNames;
 	
 	public Scalar() {
-		for (int i = 0; i < 16; i++) iregs.put("$i" + i, i + 16);
-		for (int i = 0; i < 16; i++) fregs.put("$f" + i, i);
+		regNames = new String[32];
+		for (int i = 0; i < 16; i++) iregs.put(regNames[i] = "$i" + i, i + 16);
+		for (int i = 0; i < 16; i++) fregs.put(regNames[i + 16] = "$f" + i, i);
 		allregs.putAll(iregs);
 		allregs.putAll(fregs);
 	}
@@ -178,8 +184,8 @@ public class Scalar extends CPU {
 		super.init(sim, bin);
 		register = new int[REGISTERSIZE];
 		memory = new int[MEMORYSIZE];
-		for (int i = 0; i < bin[0]; i++) {
-			memory[i] = bin[i + 1];
+		for (int i = 0; i < bin.length; i++) {
+			memory[i] = bin[i];
 		}
 		pc = 0;
 	}
@@ -280,6 +286,46 @@ public class Scalar extends CPU {
 		} else {
 			throw new ExecuteException(String.format("IllegalOperation: %08x", ope));
 		}
+	}
+	
+	public SimFrame[] createFrames() {
+		ArrayList<SimFrame> frames = new ArrayList<SimFrame>();
+		frames.addAll(asList(super.createFrames()));
+		frames.add(new RegisterFrame());
+		return frames.toArray(new SimFrame[0]);
+	}
+	
+	protected class RegisterFrame extends SimFrame {
+		
+		protected String[] TYPE = {"Hex", "Decimal", "Binary", "Float"};
+		protected DefaultTableModel tableModel;
+		protected JTable table;
+		protected int type;
+		
+		protected RegisterFrame() {
+			super("れじすた");
+			tableModel = new DefaultTableModel();
+			table = new JTable(tableModel);
+			table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+			table.setDefaultEditor(Object.class, null);
+			add(new JScrollPane(table), BorderLayout.CENTER);
+			setPreferredSize(new Dimension(200, 300));
+			pack();
+		}
+		
+		public void refresh() {
+			String[] label = new String[] {"Name", TYPE[type]};
+			String[][] data = new String[REGISTERSIZE][2];
+			for (int i = 0; i < REGISTERSIZE; i++) {
+				data[i][0] = regNames[i];
+				if (type == 0) data[i][1] = toHex(register[i]);
+				if (type == 1) data[i][1] = "" + register[i];
+				if (type == 2) data[i][1] = toBinary(register[i]);
+				if (type == 3) data[i][1] = String.format("%.6E", itof(register[i]));
+			}
+			tableModel.setDataVector(data, label);
+		}
+		
 	}
 	
 }
