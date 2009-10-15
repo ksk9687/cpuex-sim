@@ -198,7 +198,7 @@ public class Assembler {
 	
 	public static void main(String[] args) {
 		String encoding = "UTF-8";
-		String cpu = CPU.DEFAULT;
+		String cpuName = CPU.DEFAULT;
 		boolean vhdl = false;
 		boolean ok = true;
 		try {
@@ -208,7 +208,7 @@ public class Assembler {
 				} else if (args[i].equals("-vhdl")) {
 					vhdl = true;
 				} else if (args[i].equals("-cpu")) {
-					cpu = args[++i];
+					cpuName = args[++i];
 				} else {
 					ok = false;
 					break;
@@ -221,7 +221,9 @@ public class Assembler {
 			System.err.println("使い方: java asm.Assembler [-encoding s] [-cpu s] [-vhdl] [< src] [> dst]");
 			return;
 		}
-		Statement[] ss = assemble(CPU.loadCPU(cpu), readLines(encoding));
+		CPU cpu = CPU.loadCPU(cpuName);
+		String[] lines = readLines(encoding);
+		Statement[] ss = assemble(cpu, lines);
 		int n = ss.length;
 		int[] binary = new int[n];
 		for (int i = 0; i < n; i++) {
@@ -232,7 +234,10 @@ public class Assembler {
 				System.out.printf("\"%s\",%n", toBinary(i));
 			}
 		} else {
-			writeBinary(new DataOutputStream(System.out), binary);
+			int[] bin = new int[binary.length + 1];
+			System.arraycopy(binary, 0, bin, 1, binary.length);
+			bin[0] = binary.length;
+			writeBinary(new DataOutputStream(System.out), bin);
 		}
 	}
 	

@@ -178,8 +178,8 @@ public class Scalar extends CPU {
 		super.init(sim, bin);
 		register = new int[REGISTERSIZE];
 		memory = new int[MEMORYSIZE];
-		for (int i = 0; i < bin.length; i++) {
-			memory[i] = bin[i];
+		for (int i = 0; i < bin[0]; i++) {
+			memory[i] = bin[i + 1];
 		}
 		pc = 0;
 	}
