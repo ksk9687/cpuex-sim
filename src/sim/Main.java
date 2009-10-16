@@ -29,6 +29,9 @@ public class Main {
 				} else if (args[i].equals("-nw")) {
 					if (type != 0) ok = false;
 					type = 3;
+				} else if (args[i].equals("-xyx")) {
+					if (type != 0) ok = false;
+					type = 4;
 				} else if (args[i].charAt(0) != '-') {
 					if (fileName != null) ok = false;
 					fileName = args[i];
@@ -40,7 +43,7 @@ public class Main {
 		} catch (ArrayIndexOutOfBoundsException e) {
 			ok = false;
 		}
-		if (fileName == null) {
+		if (fileName == null && type != 0) {
 			ok = false;
 		}
 		if (!ok) {
@@ -48,6 +51,10 @@ public class Main {
 			return;
 		}
 		CPU cpu = CPU.loadCPU(cpuName);
+		if (fileName == null) {
+			new Simulator(cpu, new String[0]).runGUI();
+			return;
+		}
 		List<String> list = new ArrayList<String>();
 		try {
 			Scanner sc = new Scanner(new FileInputStream(fileName), encoding);
@@ -79,8 +86,25 @@ public class Main {
 			for (int i : bin) {
 				System.out.printf("\"%s\",%n", toBinary(i));
 			}
-		} else {
+		} else if (type == 3) {
 			new Simulator(cpu, lines).runCUI();
+		} else if (type == 4) {
+			int[] bin = Assembler.assembleToBinary(cpu, lines);
+			Random r = new Random();
+			int num = bin.length * 36;
+			for (int i : bin) {
+				String s = toBinary(i);
+				for (int j = 0; j < 4; j++) {
+					System.out.print("\"0\"&\"");
+					System.out.print(s.substring(j * 8, (j + 1) * 8));
+					int m = 1 + r.nextInt(10);
+					num += m;
+					System.out.print("\"&\"");
+					for (int k = 0; k < m; k++) System.out.print(1);
+					System.out.println("\"&");
+				}
+			}
+			System.out.println(num);
 		}
 	}
 	

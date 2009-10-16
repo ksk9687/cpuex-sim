@@ -6,9 +6,6 @@ import java.util.*;
 
 public class Utils {
 	
-	public static void main(String[] args) {
-	}
-	
 	//high downto low
 	public static int getBits(int i, int high, int low) {
 		if (high == 31 && low == 0) return i;

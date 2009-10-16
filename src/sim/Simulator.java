@@ -1,7 +1,9 @@
 package sim;
 
 import java.awt.*;
+import java.awt.event.*;
 import java.io.*;
+import java.util.*;
 import javax.swing.*;
 import asm.*;
 import cpu.*;
@@ -14,7 +16,6 @@ public class Simulator {
 	private DataOutputStream out;
 	private JFrame frame;
 	private JDesktopPane desktop;
-	private SimFrame[] frames;
 	
 	public Simulator(CPU cpu, String[] lines) {
 		this.cpu = cpu;
@@ -65,27 +66,85 @@ public class Simulator {
 		} catch (Exception e) {
 		}
 		desktop = new JDesktopPane();
-		desktop.setPreferredSize(new Dimension(500, 500));
-		
-		frames = cpu.createFrames();
-		for (SimFrame iframe : frames) {
-			addFrame(iframe);
-			iframe.refresh();
+		desktop.setPreferredSize(new Dimension(800, 500));
+		JMenuBar menubar = new JMenuBar();
+		JMenu styleMenu = new LookAndFeelMenu("Style");
+		JMenu viewMenu = new JMenu("View");
+		for (String name : cpu.getViews()) {
+			viewMenu.add(new JMenuItem(new AbstractAction(name) {
+				public void actionPerformed(ActionEvent e) {
+					addView(cpu.createView(e.getActionCommand()));
+				}
+			}));
 		}
+		menubar.add(styleMenu);
+		menubar.add(viewMenu);
 		frame = new JFrame("しみゅれーた");
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		frame.setContentPane(desktop);
+		frame.setJMenuBar(menubar);
 		frame.pack();
+		addView(new RunView());
 		frame.setLocationRelativeTo(null);
 		frame.setVisible(true);
 	}
 	
-	public void addFrame(JInternalFrame iframe) {
-		int n = desktop.getComponentCount();
-		iframe.setLocation(50 * n, 50 * n);
-		iframe.setVisible(true);
-		desktop.add(iframe);
-		desktop.getDesktopManager().activateFrame(iframe);
+	public void addView(SimView view) {
+		setLocation(view);
+		desktop.add(view);
+		view.refresh();
+		view.setVisible(true);
+		desktop.getDesktopManager().activateFrame(view);
+	}
+	
+	public void refreshAll() {
+		for (JInternalFrame f : desktop.getAllFrames()) {
+			if (f instanceof SimView) {
+				((SimView)f).refresh();
+			}
+		}
+	}
+	
+	private Random r = new Random();
+	private void setLocation(SimView view) {
+		int x = 0, y = 0;
+		if (view.getWidth() < desktop.getWidth()) {
+			x = r.nextInt(desktop.getWidth() - view.getWidth());
+		}
+		if (view.getHeight() < desktop.getHeight()) {
+			y = r.nextInt(desktop.getHeight() - view.getHeight());
+		}
+		view.setLocation(x, y);
+	}
+	
+	private class RunView extends SimView {
+		
+		private int clock;
+		private JLabel label;
+		
+		private RunView() {
+			super("Run");
+			add(new JButton(new AbstractAction("step") {
+				public void actionPerformed(ActionEvent ae) {
+					try {
+						cpu.clock();
+						clock++;
+					} catch (ExecuteException e) {
+						JOptionPane.showMessageDialog(frame, e.getMessage());
+					}
+					refreshAll();
+				}
+			}), BorderLayout.CENTER);
+			label = new JLabel("Clock");
+			label.setHorizontalAlignment(JButton.CENTER);
+			add(label, BorderLayout.SOUTH);
+			pack();
+		}
+		
+		public void refresh() {
+			label.setText("Clock = " + clock);
+		}
+		
 	}
 	
 }

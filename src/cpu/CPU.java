@@ -7,11 +7,11 @@ import asm.*;
 
 public abstract class CPU {
 	
-	public static final String DEFAULT = "cpu.Scalar";
+	public static final String DEFAULT = "Scalar";
 	
 	public static CPU loadCPU(String name) {
 		try {
-			Object o = Class.forName(name).newInstance();
+			Object o = Class.forName("cpu." + name).newInstance();
 			return (CPU)o;
 		} catch (Exception e) {
 			failWith(String.format("%s: CPUが見つかりませんでした", name));
@@ -59,8 +59,13 @@ public abstract class CPU {
 	
 	public abstract void clock();
 	
-	public SimFrame[] createFrames() {
-		return new SimFrame[0];
+	public String[] getViews() {
+		return new String[0];
+	}
+	
+	public SimView createView(String name) {
+		failWith(String.format("%s: 存在しないView名", name));
+		return null;
 	}
 	
 }

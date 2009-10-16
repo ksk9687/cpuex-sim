@@ -1,8 +1,8 @@
 package cpu;
 
-import static java.util.Arrays.*;
 import static util.Utils.*;
 import java.awt.*;
+import java.awt.event.*;
 import java.util.*;
 import javax.swing.*;
 import javax.swing.table.*;
@@ -18,8 +18,8 @@ public class Scalar extends CPU {
 	
 	public Scalar() {
 		regNames = new String[32];
-		for (int i = 0; i < 16; i++) iregs.put(regNames[i] = "$i" + i, i + 16);
-		for (int i = 0; i < 16; i++) fregs.put(regNames[i + 16] = "$f" + i, i);
+		for (int i = 0; i < 16; i++) fregs.put(regNames[i] = "$f" + i, i);
+		for (int i = 0; i < 16; i++) iregs.put(regNames[i + 16] = "$i" + i, i + 16);
 		allregs.putAll(iregs);
 		allregs.putAll(fregs);
 	}
@@ -288,26 +288,51 @@ public class Scalar extends CPU {
 		}
 	}
 	
-	public SimFrame[] createFrames() {
-		ArrayList<SimFrame> frames = new ArrayList<SimFrame>();
-		frames.addAll(asList(super.createFrames()));
-		frames.add(new RegisterFrame());
-		return frames.toArray(new SimFrame[0]);
+	public String[] views = {"Register", "Memory"};
+	
+	public String[] getViews() {
+		ArrayList<String> list = new ArrayList<String>();
+		for (String view : views) {
+			if (list.contains(view)) {
+				list.remove(view);
+			}
+			list.add(view);
+		}
+		return list.toArray(new String[0]);
 	}
 	
-	protected class RegisterFrame extends SimFrame {
+	public SimView createView(String name) {
+		if (name.equals("Register")) {
+			return new RegisterView();
+		}
+		if (name.equals("Memory")) {
+			return new MemoryView();
+		}
+		return super.createView(name);
+	}
+	
+	protected class RegisterView extends SimView {
 		
 		protected String[] TYPE = {"Hex", "Decimal", "Binary", "Float"};
 		protected DefaultTableModel tableModel;
 		protected JTable table;
 		protected int type;
 		
-		protected RegisterFrame() {
-			super("れじすた");
+		protected RegisterView() {
+			super("Register");
 			tableModel = new DefaultTableModel();
 			table = new JTable(tableModel);
-			table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+			table.setFont(FONT);
 			table.setDefaultEditor(Object.class, null);
+			table.getTableHeader().setReorderingAllowed(false);
+			table.getTableHeader().addMouseListener(new MouseAdapter() {
+				public void mousePressed(MouseEvent e) {
+					if (table.getTableHeader().columnAtPoint(e.getPoint()) == 1) {
+						type = (type + 1) % TYPE.length;
+						refresh();
+					}
+				}
+			});
 			add(new JScrollPane(table), BorderLayout.CENTER);
 			setPreferredSize(new Dimension(200, 300));
 			pack();
@@ -324,6 +349,52 @@ public class Scalar extends CPU {
 				if (type == 3) data[i][1] = String.format("%.6E", itof(register[i]));
 			}
 			tableModel.setDataVector(data, label);
+			table.getColumnModel().getColumn(0).setMinWidth(50);
+			table.getColumnModel().getColumn(0).setMaxWidth(50);
+		}
+		
+	}
+	
+	protected class MemoryView extends SimView {
+		
+		protected String[] TYPE = {"Hex", "Decimal", "Binary", "Float"};
+		protected DefaultTableModel tableModel;
+		protected JTable table;
+		protected int type;
+		
+		protected MemoryView() {
+			super("Memory");
+			tableModel = new DefaultTableModel();
+			table = new JTable(tableModel);
+			table.setFont(FONT);
+			table.setDefaultEditor(Object.class, null);
+			table.getTableHeader().setReorderingAllowed(false);
+			table.getTableHeader().addMouseListener(new MouseAdapter() {
+				public void mousePressed(MouseEvent e) {
+					if (table.getTableHeader().columnAtPoint(e.getPoint()) == 1) {
+						type = (type + 1) % TYPE.length;
+						refresh();
+					}
+				}
+			});
+			add(new JScrollPane(table), BorderLayout.CENTER);
+			setPreferredSize(new Dimension(200, 300));
+			pack();
+		}
+		
+		public void refresh() {
+			String[] label = new String[] {"Address", TYPE[type]};
+			String[][] data = new String[100][2];
+			for (int i = 0; i < 100; i++) {
+				data[i][0] = toHex(i);
+				if (type == 0) data[i][1] = toHex(memory[i]);
+				if (type == 1) data[i][1] = "" + memory[i];
+				if (type == 2) data[i][1] = toBinary(memory[i]);
+				if (type == 3) data[i][1] = String.format("%.6E", itof(memory[i]));
+			}
+			tableModel.setDataVector(data, label);
+			table.getColumnModel().getColumn(0).setMinWidth(80);
+			table.getColumnModel().getColumn(0).setMaxWidth(80);
 		}
 		
 	}
