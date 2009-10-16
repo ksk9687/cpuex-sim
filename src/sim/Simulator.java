@@ -11,7 +11,6 @@ import cpu.*;
 public class Simulator {
 	
 	private CPU cpu;
-	private String[] lines;
 	private DataInputStream in;
 	private DataOutputStream out;
 	private JFrame frame;
@@ -19,8 +18,7 @@ public class Simulator {
 	
 	public Simulator(CPU cpu, String[] lines) {
 		this.cpu = cpu;
-		this.lines = lines;
-		cpu.init(this, Assembler.assembleToBinary(cpu, lines));
+		cpu.init(this, lines, Assembler.assemble(cpu, lines));
 		in = new DataInputStream(System.in);
 		out = new DataOutputStream(System.out);
 	}
@@ -104,6 +102,7 @@ public class Simulator {
 				((SimView)f).refresh();
 			}
 		}
+		frame.repaint();
 	}
 	
 	private Random r = new Random();
@@ -120,11 +119,26 @@ public class Simulator {
 	
 	private class RunView extends SimView {
 		
-		private int clock;
+		private long clock;
 		private JLabel label;
 		
 		private RunView() {
 			super("Run");
+			setLayout(new GridLayout(3, 1));
+			setClosable(false);
+			add(new JButton(new AbstractAction("run") {
+				public void actionPerformed(ActionEvent ae) {
+					try {
+						for (;;) {
+							cpu.clock();
+							clock++;
+						}
+					} catch (ExecuteException e) {
+						JOptionPane.showMessageDialog(frame, e.getMessage());
+					}
+					refreshAll();
+				}
+			}));
 			add(new JButton(new AbstractAction("step") {
 				public void actionPerformed(ActionEvent ae) {
 					try {
@@ -135,15 +149,15 @@ public class Simulator {
 					}
 					refreshAll();
 				}
-			}), BorderLayout.CENTER);
+			}));
 			label = new JLabel("Clock");
-			label.setHorizontalAlignment(JButton.CENTER);
-			add(label, BorderLayout.SOUTH);
+			label.setHorizontalAlignment(JLabel.CENTER);
+			add(label);
 			pack();
 		}
 		
 		public void refresh() {
-			label.setText("Clock = " + clock);
+			label.setText(String.format("%,d clock", clock));
 		}
 		
 	}

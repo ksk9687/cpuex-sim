@@ -55,6 +55,6 @@ FIB:
 	addi $sp $sp -3		# $sp = $sp + 3
 RET:
 	jr $ra
-N:	.int 10
+N:	.int 35
 STACK:
 	.int 0				#スタックの位置

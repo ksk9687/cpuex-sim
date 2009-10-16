@@ -1211,7 +1211,7 @@ cordic_rec.6601:
 	mov     $f2, $f1
 	ret
 be_else.10659:
-	cmp     $f5, $f3, $i12
+	fcmp    $f5, $f3, $i12
 	bg      $i12, ble_else.10660
 	add     $i1, 1, $i2
 	fmul    $f4, $f2, $f5
@@ -1274,7 +1274,7 @@ cordic_rec.6569:
 	bne     $i12, be_else.10661
 	ret
 be_else.10661:
-	cmp     $f5, $f3, $i12
+	fcmp    $f5, $f3, $i12
 	bg      $i12, ble_else.10662
 	add     $i1, 1, $i2
 	fmul    $f4, $f2, $f5
@@ -1339,7 +1339,7 @@ cordic_rec.6536:
 be_else.10663:
 	li      l.6636, $i2
 	load    0($i2), $f5
-	cmp     $f2, $f5, $i12
+	fcmp    $f2, $f5, $i12
 	bg      $i12, ble_else.10664
 	add     $i1, 1, $i2
 	fmul    $f4, $f2, $f5
@@ -1400,13 +1400,13 @@ sin.2721:
 	load    1($i11), $i1
 	li      l.6636, $i2
 	load    0($i2), $f5
-	cmp     $f5, $f1, $i12
+	fcmp    $f5, $f1, $i12
 	bg      $i12, ble_else.10665
-	cmp     $f2, $f1, $i12
+	fcmp    $f2, $f1, $i12
 	bg      $i12, ble_else.10666
-	cmp     $f4, $f1, $i12
+	fcmp    $f4, $f1, $i12
 	bg      $i12, ble_else.10667
-	cmp     $f3, $f1, $i12
+	fcmp    $f3, $f1, $i12
 	bg      $i12, ble_else.10668
 	fsub    $f1, $f3, $f1
 	load    0($i11), $i10
@@ -1451,13 +1451,13 @@ cos.2723:
 	load    1($i11), $i1
 	li      l.6636, $i2
 	load    0($i2), $f5
-	cmp     $f5, $f1, $i12
+	fcmp    $f5, $f1, $i12
 	bg      $i12, ble_else.10671
-	cmp     $f2, $f1, $i12
+	fcmp    $f2, $f1, $i12
 	bg      $i12, ble_else.10672
-	cmp     $f4, $f1, $i12
+	fcmp    $f4, $f1, $i12
 	bg      $i12, ble_else.10673
-	cmp     $f3, $f1, $i12
+	fcmp    $f3, $f1, $i12
 	bg      $i12, ble_else.10674
 	fsub    $f1, $f3, $f1
 	load    0($i11), $i10
@@ -1502,7 +1502,7 @@ get_sqrt_init_rec.6510:
 be_else.10676:
 	li      l.6665, $i2
 	load    0($i2), $f2
-	cmp     $f2, $f1, $i12
+	fcmp    $f2, $f1, $i12
 	bg      $i12, ble_else.10677
 	li      l.6665, $i2
 	load    0($i2), $f2
@@ -1521,7 +1521,7 @@ get_sqrt_init.2727:
 sqrt.2729:
 	li      l.6639, $i1
 	load    0($i1), $f2
-	cmp     $f2, $f1, $i12
+	fcmp    $f2, $f1, $i12
 	bg      $i12, ble_else.10678
 	store   $f1, 0($sp)
 	store   $ra, 1($sp)

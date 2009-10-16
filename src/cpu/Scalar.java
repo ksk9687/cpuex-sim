@@ -1,5 +1,7 @@
 package cpu;
 
+import static java.lang.Math.*;
+import static java.util.Arrays.*;
 import static util.Utils.*;
 import java.awt.*;
 import java.awt.event.*;
@@ -179,18 +181,14 @@ public class Scalar extends CPU {
 	protected static final int MEMORYSIZE = 1 << 20;
 	protected int[] register;
 	protected int[] memory;
-	protected int pc;
 	
-	long clock = 0;
-	
-	public void init(Simulator sim, int[] bin) {
-		super.init(sim, bin);
+	public void init(Simulator sim, String[] lines, Statement[] ss) {
+		super.init(sim, lines, ss);
 		register = new int[REGISTERSIZE];
 		memory = new int[MEMORYSIZE];
-		for (int i = 0; i < bin.length; i++) {
-			memory[i] = bin[i];
+		for (int i = 0; i < ss.length; i++) {
+			memory[i] = ss[i].binary;
 		}
-		pc = 0;
 	}
 	
 	protected int load(int address) {
@@ -207,6 +205,7 @@ public class Scalar extends CPU {
 		memory[address] = i;
 	}
 	
+	long clock = 0;
 	public void clock() {
 		clock++;
 		if (clock % 1000000 == 0) {
@@ -250,23 +249,13 @@ public class Scalar extends CPU {
 			register[rd] = ftoi(1.0f / itof(register[rs]));
 			pc++;
 		} else if (opecode == 9) { //load
-			int p = register[rs] + signExt(immediate, 16);
-			if (p < 0 || p >= MEMORYSIZE) {
-				throw new RuntimeException(String.format("IllegalMemory: %08x", p));
-			}
-			register[rt] = memory[p];
+			register[rt] = load(register[rs] + signExt(immediate, 16));
 			pc++;
 		} else if (opecode == 10) { //li
 			register[rt] = signExt(immediate, 16);
 			pc++;
 		} else if (opecode == 11) { //store
-			int p = register[rs] + signExt(immediate, 16);
-			if (p < 0 || p >= MEMORYSIZE) {
-				debug(clock, pc, rs, register[rs], signExt(immediate, 16));
-				debug(register);
-				throw new RuntimeException(String.format("IllegalMemory: %08x", p));
-			}
-			memory[p] = register[rt];
+			store(register[rs] + signExt(immediate, 16), register[rt]);
 			pc++;
 		} else if (opecode == 12) { //cmp
 			register[rd] = cmp(register[rs], register[rt]);
@@ -304,6 +293,7 @@ public class Scalar extends CPU {
 	
 	public String[] getViews() {
 		ArrayList<String> list = new ArrayList<String>();
+		list.addAll(asList(super.getViews()));
 		for (String view : views) {
 			if (list.contains(view)) {
 				list.remove(view);
@@ -369,13 +359,33 @@ public class Scalar extends CPU {
 	
 	protected class MemoryView extends SimView {
 		
-		protected String[] TYPE = {"Hex", "Decimal", "Binary", "Float"};
+		protected static final int SIZE = 100;
+		protected final String[] TYPE = {"Hex", "Decimal", "Binary", "Float"};
+		protected JTextField addressField;
 		protected DefaultTableModel tableModel;
 		protected JTable table;
+		protected int address, from, to;
 		protected int type;
 		
 		protected MemoryView() {
 			super("Memory");
+			addressField = new JTextField("0");
+			addressField.setFont(FONT);
+			addressField.setHorizontalAlignment(JTextField.CENTER);
+			addressField.addActionListener(new AbstractAction() {
+				public void actionPerformed(ActionEvent ae) {
+					try {
+						int p = parseInt(addressField.getText());
+						if (0 <= p && p < MEMORYSIZE) {
+							address = p;
+							refresh();
+							table.scrollRectToVisible(table.getCellRect(address - from, 0, true));
+						}
+					} catch (NumberFormatException e) {
+					}
+				}
+			});
+			add(addressField, BorderLayout.NORTH);
 			tableModel = new DefaultTableModel();
 			table = new JTable(tableModel);
 			table.setFont(FONT);
@@ -395,14 +405,16 @@ public class Scalar extends CPU {
 		}
 		
 		public void refresh() {
+			from = max(address - SIZE, 0);
+			to = min(address + SIZE, MEMORYSIZE);
 			String[] label = new String[] {"Address", TYPE[type]};
-			String[][] data = new String[100][2];
-			for (int i = 0; i < 100; i++) {
-				data[i][0] = toHex(i);
-				if (type == 0) data[i][1] = toHex(memory[i]);
-				if (type == 1) data[i][1] = "" + memory[i];
-				if (type == 2) data[i][1] = toBinary(memory[i]);
-				if (type == 3) data[i][1] = String.format("%.6E", itof(memory[i]));
+			String[][] data = new String[to - from][2];
+			for (int i = from; i < to; i++) {
+				data[i - from][0] = toHex(i);
+				if (type == 0) data[i - from][1] = toHex(memory[i]);
+				if (type == 1) data[i - from][1] = "" + memory[i];
+				if (type == 2) data[i - from][1] = toBinary(memory[i]);
+				if (type == 3) data[i - from][1] = String.format("%.6E", itof(memory[i]));
 			}
 			tableModel.setDataVector(data, label);
 			table.getColumnModel().getColumn(0).setMinWidth(80);

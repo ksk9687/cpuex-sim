@@ -1,7 +1,10 @@
 package cpu;
 
 import static util.Utils.*;
+import java.awt.*;
 import java.util.*;
+import javax.swing.*;
+import javax.swing.table.*;
 import sim.*;
 import asm.*;
 
@@ -43,29 +46,124 @@ public abstract class CPU {
 	
 	public abstract int getBinary(Parser p);
 	
-	protected Simulator sim;
+	private Simulator sim;
+	protected String[] lines;
+	protected Statement[] ss;
+	protected int pc;
+	private int readByteNum;
+	private int writeByteNum;
 	
-	public void init(Simulator sim, int[] bin) {
+	public void init(Simulator sim, String[] lines, Statement[] ss) {
 		this.sim = sim;
+		this.lines = lines;
+		this.ss = ss;
+		pc = 0;
 	}
 	
 	protected int read() {
+		readByteNum++;
 		return sim.read();
 	}
 	
 	protected int write(int i) {
+		writeByteNum++;
 		return sim.write(i);
 	}
 	
 	public abstract void clock();
 	
 	public String[] getViews() {
-		return new String[0];
+		return new String[] {"Source", "Status"};
 	}
 	
 	public SimView createView(String name) {
+		if (name.equals("Source")) {
+			return new SourceView();
+		}
+		if (name.equals("Status")) {
+			return new StatusView();
+		}
 		failWith(String.format("%s: 存在しないView名", name));
 		return null;
+	}
+	
+	protected class SourceView extends SimView {
+		
+		protected boolean trackingPC = true;
+		protected JTable table;
+		
+		protected SourceView() {
+			super("Source");
+			String[][] data = new String[lines.length][3];
+			for (int i = 0; i < lines.length; i++) {
+				data[i][0] = "" + (i + 1);
+				data[i][1] = "";
+				data[i][2] = lines[i];
+			}
+			for (int i = 0; i < ss.length; i++) {
+				data[ss[i].lineID][1] = "" + i;
+			}
+			table = new JTable(data, new String[] {"Line", "PC", ""});
+			table.setFont(FONT);
+			table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
+				public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+					super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+					if (ss[pc].lineID == row) {
+						setBackground(table.getSelectionBackground());
+					} else if (isSelected) {
+						setBackground(table.getSelectionBackground());
+					} else {
+						setBackground(table.getBackground());
+					}
+					return this;
+				}
+			});
+			table.setDefaultEditor(Object.class, null);
+			table.getTableHeader().setReorderingAllowed(false);
+			table.getColumnModel().getColumn(0).setMinWidth(50);
+			table.getColumnModel().getColumn(0).setMaxWidth(50);
+			table.getColumnModel().getColumn(1).setMinWidth(50);
+			table.getColumnModel().getColumn(1).setMaxWidth(50);
+			add(new JScrollPane(table), BorderLayout.CENTER);
+			pack();
+		}
+		
+		public void refresh() {
+			if (trackingPC) {
+				table.scrollRectToVisible(table.getCellRect(ss[pc].lineID, 0, true));
+			}
+			repaint();
+		}
+		
+	}
+	
+	protected class StatusView extends SimView {
+		
+		protected JLabel pcLabel;
+		protected JLabel readLabel;
+		protected JLabel writeLabel;
+		
+		protected StatusView() {
+			super("Status");
+			setLayout(new GridLayout(3, 1));
+			pcLabel = new JLabel("PC");
+			pcLabel.setHorizontalAlignment(JLabel.CENTER);
+			readLabel = new JLabel("Read");
+			readLabel.setHorizontalAlignment(JLabel.CENTER);
+			writeLabel = new JLabel("Write");
+			writeLabel.setHorizontalAlignment(JLabel.CENTER);
+			add(pcLabel);
+			add(readLabel);
+			add(writeLabel);
+			pack();
+		}
+		
+		public void refresh() {
+			pcLabel.setText(String.format("PC = %d", pc));
+			readLabel.setText(String.format("Read %d bytes", readByteNum));
+			writeLabel.setText(String.format("Write %d bytes", writeByteNum));
+		}
+		
 	}
 	
 }

@@ -54,7 +54,7 @@ public class Statement {
 	}
 	
 	public String toString() {
-		return String.format("{%d, %s, %s, %d}", lineID, Arrays.toString(labels), Arrays.toString(tokens), binary);
+		return String.format("{%d, %s, %s, %d}", lineID, Arrays.toString(labels), str, binary);
 	}
 	
 	public static String removeComment(String str) {
