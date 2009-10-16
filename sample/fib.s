@@ -39,6 +39,6 @@ LOOP:
 	addi $n $n -1		# $n = $n - 1
 	b LOOP
 END:
-	write $a
+	write $a $a
 	halt
 N:	.int 10

@@ -53,8 +53,8 @@ public abstract class CPU {
 		return sim.read();
 	}
 	
-	protected void write(int i) {
-		sim.write(i);
+	protected int write(int i) {
+		return sim.write(i);
 	}
 	
 	public abstract void clock();

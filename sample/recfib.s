@@ -35,7 +35,7 @@ main:
 	li $one 1			# $one = 1
 	load $zero $n N		# $n = [N]
 	jal FIB				## $n = fib $n
-	write $n
+	write $n $n
 	halt
 FIB:
 	cmp $n $one $t		# $t = cmp $n 1

@@ -51,10 +51,11 @@ public class Simulator {
 		}
 	}
 	
-	public void write(int i) {
+	public int write(int i) {
 		try {
 			out.write(i & 0xff);
 			out.flush();
+			return 0;
 		} catch (IOException e) {
 			throw new ExecuteException(e.getMessage());
 		}

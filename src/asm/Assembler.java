@@ -202,6 +202,9 @@ public class Assembler {
 		for (int i = 0; i < ss.length; i++) {
 			bin[i] = ss[i].binary;
 		}
+//		for (int i = 0; i < ss.length; i++) {
+//			debug(ss[i]);
+//		}
 		return bin;
 	}
 	

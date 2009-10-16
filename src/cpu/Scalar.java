@@ -68,7 +68,7 @@ public class Scalar extends CPU {
 			String rd = p.nextReg();
 			p.end();
 			return typeR(2, reg(iregs, rs), reg(iregs, rt), reg(iregs, rd));
-		} else if (s.equals("rl")) {
+		} else if (s.equals("srl")) {
 			String rs = p.nextReg();
 			String rt = p.nextReg();
 			int i = p.nextImm();
@@ -146,8 +146,9 @@ public class Scalar extends CPU {
 			return typeI(16, reg(allregs, rs), 0, 0);
 		} else if (s.equals("write")) {
 			String rs = p.nextReg();
+			String rt = p.nextReg();
 			p.end();
-			return typeI(17, reg(allregs, rs), 0, 0);
+			return typeI(17, reg(allregs, rs), reg(allregs, rt), 0);
 		} else if (s.equals("nop")) {
 			p.end();
 			return typeJ(18, 0);
@@ -180,6 +181,8 @@ public class Scalar extends CPU {
 	protected int[] memory;
 	protected int pc;
 	
+	long clock = 0;
+	
 	public void init(Simulator sim, int[] bin) {
 		super.init(sim, bin);
 		register = new int[REGISTERSIZE];
@@ -205,6 +208,10 @@ public class Scalar extends CPU {
 	}
 	
 	public void clock() {
+		clock++;
+		if (clock % 1000000 == 0) {
+			debug(clock, pc);
+		}
 		if (pc < 0 || pc >= MEMORYSIZE) {
 			throw new ExecuteException(String.format("IllegalPC: %08x", pc));
 		}
@@ -254,6 +261,11 @@ public class Scalar extends CPU {
 			pc++;
 		} else if (opecode == 11) { //store
 			int p = register[rs] + signExt(immediate, 16);
+			if (p < 0 || p >= MEMORYSIZE) {
+				debug(clock, pc, rs, register[rs], signExt(immediate, 16));
+				debug(register);
+				throw new RuntimeException(String.format("IllegalMemory: %08x", p));
+			}
 			memory[p] = register[rt];
 			pc++;
 		} else if (opecode == 12) { //cmp
@@ -274,7 +286,7 @@ public class Scalar extends CPU {
 			register[rs] = read();
 			pc++;
 		} else if (opecode == 17) { //write
-			write(register[rs]);
+			register[rt] = write(register[rs]);
 			pc++;
 		} else if (opecode == 18) { //nop
 			pc++;
