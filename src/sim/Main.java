@@ -69,7 +69,7 @@ public class Main {
 		try {
 			for (int i = 0; i < args.length; i++) {
 				if (args[i].equals("-cpu")) {
-					cpuName = args[++i];
+					cpuName = args[++i].replace('.', '$');
 				} else if (args[i].equals("-encoding")) {
 					encoding = args[++i];
 				} else if (args[i].equals("-asm")) {

@@ -28,7 +28,9 @@ public abstract class CPU {
 				throw new AssembleException("オペランドの値が不正です");
 			}
 		} else {
-			if (i >= 1 << len) throw new NumberFormatException();
+			if (i >= 1 << len) {
+				throw new AssembleException("オペランドの値が不正です");
+			}
 			if (signExt && i >= 1 << (len - 1)) {
 				//行数も表示
 				System.err.printf("警告: %s%n", Assembler.s.createMessage("符号拡張により負の数となります"));
