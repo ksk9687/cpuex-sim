@@ -1,8 +1,6 @@
 package util;
 
 import static java.util.Arrays.*;
-import java.io.*;
-import java.util.*;
 
 public class Utils {
 	
@@ -48,30 +46,6 @@ public class Utils {
 		if (s.startsWith("-")) return -parseUInt(s.substring(1));
 		if (s.startsWith("+")) return parseUInt(s.substring(1));
 		return parseUInt(s);
-	}
-	
-	public static int[] readBinary(DataInputStream in) {
-		List<Integer> list = new ArrayList<Integer>();
-		try {
-			for (;;) {
-				list.add(in.readInt());
-			}
-		} catch (EOFException e) {
-			return toints(list.toArray(new Integer[0]));
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		}
-	}
-	
-	public static void writeBinary(DataOutputStream out, int[] binary) {
-		try {
-			for (int i : binary) {
-				out.writeInt(i);
-			}
-			out.flush();
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		}
 	}
 	
 	public static float itof(int i) {

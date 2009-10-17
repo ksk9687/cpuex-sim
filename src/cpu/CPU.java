@@ -98,9 +98,9 @@ public abstract class CPU {
 			for (int i = 0; i < lines.length; i++) {
 				data[i][0] = "" + (i + 1);
 				data[i][1] = "";
-				data[i][2] = lines[i];
+				data[i][2] = lines[i];//.replaceAll("\t", "    ");
 			}
-			for (int i = 0; i < ss.length; i++) {
+			for (int i = ss.length - 1; i >= 0; i--) {
 				data[ss[i].lineID][1] = "" + i;
 			}
 			table = new JTable(data, new String[] {"Line", "PC", ""});

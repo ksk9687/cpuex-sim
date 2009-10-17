@@ -11,16 +11,16 @@ import cpu.*;
 public class Simulator {
 	
 	private CPU cpu;
-	private DataInputStream in;
-	private DataOutputStream out;
+	private InputStream in;
+	private OutputStream out;
 	private JFrame frame;
 	private JDesktopPane desktop;
 	
-	public Simulator(CPU cpu, String[] lines) {
+	public Simulator(CPU cpu, String[] lines, Statement[] ss, InputStream in, OutputStream out) {
 		this.cpu = cpu;
-		cpu.init(this, lines, Assembler.assemble(cpu, lines));
-		in = new DataInputStream(System.in);
-		out = new DataOutputStream(System.out);
+		this.in = in;
+		this.out = out;
+		cpu.init(this, lines, ss);
 	}
 	
 	public void runGUI() {
@@ -33,6 +33,7 @@ public class Simulator {
 	
 	public void runCUI() {
 		try {
+			System.err.println("Simulating...");
 			for (;;) {
 				cpu.clock();
 			}
@@ -42,6 +43,9 @@ public class Simulator {
 	}
 	
 	public int read() {
+		if (in == null) {
+			throw new ExecuteException("Cannot read!");
+		}
 		try {
 			return in.read();
 		} catch (IOException e) {
@@ -50,6 +54,7 @@ public class Simulator {
 	}
 	
 	public int write(int i) {
+		if (out == null) return 0;
 		try {
 			out.write(i & 0xff);
 			out.flush();
@@ -121,6 +126,7 @@ public class Simulator {
 		
 		private long clock;
 		private JLabel label;
+		private boolean running;
 		
 		private RunView() {
 			super("Run");
@@ -128,14 +134,21 @@ public class Simulator {
 			setClosable(false);
 			add(new JButton(new AbstractAction("run") {
 				public void actionPerformed(ActionEvent ae) {
-					try {
-						for (;;) {
-							cpu.clock();
-							clock++;
+					running = true;
+					new Thread(new Runnable() {
+						public void run() {
+							try {
+								while (running) {
+									cpu.clock();
+									clock++;
+								}
+							} catch (ExecuteException e) {
+								JOptionPane.showMessageDialog(frame, e.getMessage());
+							}
 						}
-					} catch (ExecuteException e) {
-						JOptionPane.showMessageDialog(frame, e.getMessage());
-					}
+					}).start();
+					JOptionPane.showMessageDialog(frame, "Running...", "Running", JOptionPane.PLAIN_MESSAGE);
+					running = false;
 					refreshAll();
 				}
 			}));

@@ -8,11 +8,63 @@ import cpu.*;
 
 public class Main {
 	
+	public static final int TABSIZE = 4;
+	
+	public static FileInputStream openInputFile(String fileName) {
+		try {
+			return new FileInputStream(fileName);
+		} catch (FileNotFoundException e) {
+			failWith(String.format("%s: 指定されたファイルが見つかりません", fileName));
+			return null;
+		}
+	}
+	
+	public static FileOutputStream openOutputFile(String fileName) {
+		try {
+			return new FileOutputStream(fileName);
+		} catch (FileNotFoundException e) {
+			failWith(String.format("%s: 指定されたファイルが見つかりません", fileName));
+			return null;
+		}
+	}
+	
+	public static String tabChange(String str) {
+		StringBuilder sb = new StringBuilder();
+		for (char c : str.toCharArray()) {
+			if (c == '\t') {
+				do {
+					sb.append(' ');
+				} while (sb.length() % TABSIZE != 0);
+			} else {
+				sb.append(c);
+			}
+		}
+		return sb.toString();
+	}
+	
+	public static String[] readLines(FileInputStream in, String encoding) {
+		List<String> list = new ArrayList<String>();
+		try {
+			Scanner sc = new Scanner(in, encoding);
+			while (sc.hasNext()) {
+				list.add(tabChange(sc.nextLine()));
+			}
+		} catch (IllegalArgumentException e) {
+			failWith(String.format("%s: このエンコーディングはサポートされていません", encoding));
+		}
+		return list.toArray(new String[0]);
+	}
+	
 	public static void main(String[] args) {
-		int type = 0;
+		int simType = 0;
 		String fileName = null;
+		String asmOut = null;
+		String vhdlOut = null;
+		String simIn = null;
+		String simOut = null;
 		String encoding = "UTF-8";
 		String cpuName = CPU.DEFAULT;
+		boolean xyx = false;
 		boolean ok = true;
 		try {
 			for (int i = 0; i < args.length; i++) {
@@ -21,17 +73,25 @@ public class Main {
 				} else if (args[i].equals("-encoding")) {
 					encoding = args[++i];
 				} else if (args[i].equals("-asm")) {
-					if (type != 0) ok = false;
-					type = 1;
+					if (asmOut != null) ok = false;
+					asmOut = args[++i];
 				} else if (args[i].equals("-vhdl")) {
-					if (type != 0) ok = false;
-					type = 2;
-				} else if (args[i].equals("-nw")) {
-					if (type != 0) ok = false;
-					type = 3;
+					if (vhdlOut != null) ok = false;
+					vhdlOut = args[++i];
+				} else if (args[i].equals("-gui")) {
+					if (simType != 0) ok = false;
+					simType = 1;
+				} else if (args[i].equals("-cui")) {
+					if (simType != 0) ok = false;
+					simType = 2;
+				} else if (args[i].equals("-in")) {
+					if (simIn != null) ok = false;
+					simIn = args[++i];
+				} else if (args[i].equals("-out")) {
+					if (simOut != null) ok = false;
+					simOut = args[++i];
 				} else if (args[i].equals("-xyx")) {
-					if (type != 0) ok = false;
-					type = 4;
+					xyx = true;
 				} else if (args[i].charAt(0) != '-') {
 					if (fileName != null) ok = false;
 					fileName = args[i];
@@ -43,60 +103,43 @@ public class Main {
 		} catch (ArrayIndexOutOfBoundsException e) {
 			ok = false;
 		}
-		if (fileName == null && type != 0) {
-			ok = false;
-		}
+		if (fileName == null) ok = false;
+		if (simType == 0 && (simIn != null || simOut != null)) ok = false;
 		if (!ok) {
-			System.err.println("使い方: sim file [-cpu s] [-encoding s] [-asm] [-vhdl] [-nw] [< in] [> out]");
+			System.err.println("使い方: sim file [-cpu s] [-encoding s] [-asm s] [-vhdl s] [-gui] [-cui] [-in s] [-out s]");
 			return;
 		}
 		CPU cpu = CPU.loadCPU(cpuName);
-		if (fileName == null) {
-			new Simulator(cpu, new String[0]).runGUI();
-			return;
-		}
-		List<String> list = new ArrayList<String>();
-		try {
-			Scanner sc = new Scanner(new FileInputStream(fileName), encoding);
-			while (sc.hasNext()) {
-				list.add(sc.nextLine());
-			}
-		} catch (FileNotFoundException e) {
-			failWith(String.format("%s: 指定されたファイルが見つかりません", fileName));
-		} catch (IllegalArgumentException e) {
-			failWith(String.format("%s: このエンコーディングはサポートされていません", encoding));
-		}
-		String[] lines = list.toArray(new String[0]);
-		if (type == 0) {
-			new Simulator(cpu, lines).runGUI();
-		} else if (type == 1) {
-			int[] bin = Assembler.assembleToBinary(cpu, lines);
-			DataOutputStream out = new DataOutputStream(System.out);
+		String[] lines = readLines(openInputFile(fileName), encoding);
+		System.err.println("Assembling...");
+		Statement[] ss = Assembler.assemble(cpu, lines);
+		System.err.println("Finished!");
+		if (asmOut != null) {
 			try {
-				out.writeInt(bin.length);
-				for (int i : bin) {
-					out.writeInt(i);
+				DataOutputStream out = new DataOutputStream(openOutputFile(asmOut));
+				out.writeInt(ss.length);
+				for (Statement s : ss) {
+					out.writeInt(s.binary);
 				}
-				out.flush();
+				out.close();
 			} catch (IOException e) {
-				throw new RuntimeException(e);
+				e.printStackTrace();
 			}
-		} else if (type == 2) {
-			int[] bin = Assembler.assembleToBinary(cpu, lines);
-			for (int i : bin) {
-				System.out.printf("\"%s\",%n", toBinary(i));
+		}
+		if (vhdlOut != null) {
+			PrintStream out = new PrintStream(openOutputFile(vhdlOut));
+			for (Statement s : ss) {
+				out.printf("\"%s\",%n", toBinary(s.binary));
 			}
-		} else if (type == 3) {
-			new Simulator(cpu, lines).runCUI();
-		} else if (type == 4) {
-			int[] bin = Assembler.assembleToBinary(cpu, lines);
+		}
+		if (xyx) {
 			Random r = new Random();
-			int num = bin.length * 36;
-			for (int i : bin) {
-				String s = toBinary(i);
+			int num = ss.length * 36;
+			for (Statement s : ss) {
+				String str = toBinary(s.binary);
 				for (int j = 0; j < 4; j++) {
 					System.out.print("\"0\"&\"");
-					System.out.print(s.substring(j * 8, (j + 1) * 8));
+					System.out.print(str.substring(j * 8, (j + 1) * 8));
 					int m = 1 + r.nextInt(10);
 					num += m;
 					System.out.print("\"&\"");
@@ -106,7 +149,18 @@ public class Main {
 			}
 			System.out.println(num);
 		}
+		if (simType != 0) {
+			InputStream in = null;
+			OutputStream out = null;
+			if (simIn != null) in = openInputFile(simIn);
+			if (simOut != null) out = openOutputFile(simOut);
+			Simulator sim = new Simulator(cpu, lines, ss, in, out);
+			if (simType == 1) {
+				sim.runGUI();
+			} else {
+				sim.runCUI();
+			}
+		}
 	}
-	
 	
 }

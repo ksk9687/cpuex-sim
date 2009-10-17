@@ -40,19 +40,7 @@ public class Scalar extends CPU {
 	
 	public int getBinary(Parser p) {
 		String s = p.next();
-		if (s.equals("_add")) {
-			String rs = p.nextReg();
-			String rt = p.nextReg();
-			String rd = p.nextReg();
-			p.end();
-			return typeR(0, reg(allregs, rs), reg(allregs, rt), reg(allregs, rd));
-		} else if (s.equals("_sub")) {
-			String rs = p.nextReg();
-			String rt = p.nextReg();
-			String rd = p.nextReg();
-			p.end();
-			return typeR(2, reg(allregs, rs), reg(allregs, rt), reg(allregs, rd));
-		} else if (s.equals("add")) {
+		if (s.equals("add")) {
 			String rs = p.nextReg();
 			String rt = p.nextReg();
 			String rd = p.nextReg();
@@ -208,9 +196,6 @@ public class Scalar extends CPU {
 	long clock = 0;
 	public void clock() {
 		clock++;
-		if (clock % 1000000 == 0) {
-			debug(clock, pc);
-		}
 		if (pc < 0 || pc >= MEMORYSIZE) {
 			throw new ExecuteException(String.format("IllegalPC: %08x", pc));
 		}
@@ -280,7 +265,7 @@ public class Scalar extends CPU {
 		} else if (opecode == 18) { //nop
 			pc++;
 		} else if (opecode == 19) { //halt
-			throw new ExecuteException("Finished!!!");
+			throw new ExecuteException("Finished!");
 		} else if (opecode == 20) { //fcmp
 			register[rd] = fcmp(register[rs], register[rt]);
 			pc++;
@@ -421,6 +406,54 @@ public class Scalar extends CPU {
 			table.getColumnModel().getColumn(0).setMaxWidth(80);
 		}
 		
+	}
+	
+	static class Debug extends Scalar {
+		
+		public int getBinary(Parser p) {
+			try {
+				return super.getBinary(p);
+			} catch (ParseException e) {
+				p.init();
+				String s = p.next();
+				if (s.equals("debug_int")) {
+					String rs = p.nextReg();
+					p.end();
+					return typeI(63, reg(allregs, rs), 0, 0);
+				} else if (s.equals("debug_float")) {
+					String rs = p.nextReg();
+					p.end();
+					return typeI(62, reg(allregs, rs), 0, 0);
+				} else if (s.equals("break")) {
+					p.end();
+					return typeJ(61,0);
+				} else {
+					throw e;
+				}
+			}
+		}
+		
+		public void clock() {
+			try {
+				super.clock();
+			} catch (ExecuteException e) {
+				int ope = memory[pc];
+				int opecode = ope >>> 26;
+				int rs = ope >>> 21 & (REGISTERSIZE - 1);
+				if (opecode == 63) { //debug_int
+					System.err.printf("%s(%d)%n", toHex(register[rs]), register[rs]);
+					pc++;
+				} else if (opecode == 62) { //debug_float
+					System.err.printf("%.6E%n", itof(register[rs]));
+					pc++;
+				} else if (opecode == 61) { //break
+					pc++;
+					throw new ExecuteException("Break!");
+				} else {
+					throw e;
+				}
+			}
+		}
 	}
 	
 }

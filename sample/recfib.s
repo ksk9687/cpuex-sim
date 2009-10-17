@@ -7,7 +7,6 @@
 #$sp=スタックポインタ
 #$ra=リンクレジスタ
 #レジスタの退避はcallerが行う
-
 #jmp
 .define { jmp %Reg %Imm %Imm } { _jmp %1 %2 %{ %3 - %pc } }
 

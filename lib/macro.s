@@ -1,3 +1,9 @@
+######################################################################
+#
+# 		↓　ここから macro.s
+#
+######################################################################
+
 #レジスタ名置き換え
 .define $zero $i0
 .define $ra $i15
@@ -17,7 +23,7 @@
 .define { mov %Reg %Reg } { addi %1 %2 0 }
 .define { neg %Reg %Reg } { sub $zero %1 %2 }
 .define { fneg %Reg %Reg } { fsub $fzero %1 %2 }
-.define { b %Imm } { jmp $i0 0 %1 }
+.define { b %Imm } { jmp $zero 0 %1 }
 .define { be %Reg %Imm } { jmp %1 5 %2 }
 .define { bne %Reg %Imm } { jmp %1 2 %2 }
 .define { bl %Reg %Imm } { jmp %1 6 %2 }
@@ -46,6 +52,7 @@
 .define { store %Reg, %Imm } { store %1, %2($zero) }
 .define { cmp %Reg, %Reg, %Reg } { cmp %1 %2 %3 }
 .define { fcmp %Reg, %Reg, %Reg } { fcmp %1 %2 %3 }
+.define { write %Reg, %Reg } { write %1 %2 }
 .define { jmp %Reg, %Imm, %Imm } { jmp %1 %2 %3 }
 .define { mov %Reg, %Reg } { mov %1 %2 }
 .define { neg %Reg, %Reg } { neg %1 %2 }
@@ -90,6 +97,7 @@
 .define { %Reg = cmp %Reg %Reg } { cmp %2, %3, %1 }
 .define { %Reg = fcmp %Reg %Reg } { fcmp %2, %3, %1 }
 .define { %Reg = read } { read %1 }
+.define { %Reg = write %Reg } { write %2 %1 }
 .define { %Reg = %Reg } { mov %2, %1 }
 .define { %Reg = -%Reg } { neg %2, %1 }
 .define { %Reg = -%Reg } { fneg %2, %1 }
@@ -103,4 +111,10 @@
 
 #スタックとヒープの初期化
 	li      0x7fff, $hp
-	sll     $hp, 2, $sp
+	sll     $hp, 4, $sp
+
+######################################################################
+#
+# 		↑　ここまで macro.s
+#
+######################################################################

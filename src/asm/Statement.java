@@ -6,6 +6,7 @@ import java.util.regex.*;
 
 public class Statement {
 	
+	public static final int TABSIZE = 4;
 	public static final String SIGN = "[](){}<>+-*/=,";
 	
 	public int lineID;

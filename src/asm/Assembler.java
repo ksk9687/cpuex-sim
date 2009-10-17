@@ -12,7 +12,7 @@ public class Assembler {
 	public static Statement s;
 	
 	//linesからコメントの除去・ラベルの抽出・文字列のトークン化を行う
-	public static Statement[] lex(String[] lines) {
+	private static Statement[] lex(String[] lines) {
 		List<Statement> list = new ArrayList<Statement>();
 		List<String> labels = new ArrayList<String>();
 		for (int lineID = 0; lineID < lines.length; lineID++) {
@@ -31,7 +31,7 @@ public class Assembler {
 	}
 	
 	//{}の中身を返す
-	public static String[] contents(Parser p) {
+	private static String[] contents(Parser p) {
 		List<String> list = new ArrayList<String>();
 		p.eat("{");
 		int depth = 1;
@@ -49,7 +49,7 @@ public class Assembler {
 	}
 	
 	//ラベルの置換
-	public static void replace(String[] ss, Map<String, Integer> labels) {
+	private static void replace(String[] ss, Map<String, Integer> labels) {
 		for (int i = 0; i < ss.length; i++) {
 			if (labels.containsKey(ss[i])) {
 				ss[i] = "" + labels.get(ss[i]);
@@ -58,7 +58,7 @@ public class Assembler {
 	}
 	
 	//文字列の置換
-	public static void replace(String[] ss, String s, String t) {
+	private static void replace(String[] ss, String s, String t) {
 		for (int i = 0; i < ss.length; i++) {
 			if (ss[i].equals(s)) {
 				ss[i] = t;
@@ -67,7 +67,7 @@ public class Assembler {
 	}
 	
 	//マクロを処理する
-	public static Pair<Define[], Statement[]> macro(Statement[] ss) {
+	private static Pair<Define[], Statement[]> macro(Statement[] ss) {
 		Map<String, Integer> labels = new HashMap<String, Integer>();
 		Map<String, String[]> map = new HashMap<String, String[]>();
 		List<Statement> list = new ArrayList<Statement>();
@@ -193,19 +193,6 @@ public class Assembler {
 			System.exit(1);
 			throw e;
 		}
-	}
-	
-	//linesをcpu向けにアセンブルし、バイナリを返す
-	public static int[] assembleToBinary(CPU cpu, String[] lines) {
-		Statement[] ss = Assembler.assemble(cpu, lines);
-		int[] bin = new int[ss.length];
-		for (int i = 0; i < ss.length; i++) {
-			bin[i] = ss[i].binary;
-		}
-//		for (int i = 0; i < ss.length; i++) {
-//			debug(ss[i]);
-//		}
-		return bin;
 	}
 	
 }
