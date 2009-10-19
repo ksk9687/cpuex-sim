@@ -101,7 +101,7 @@ min_caml_rsqrt_table:
 # * floor
 ######################################################################
 min_caml_floor:
-	cmp $f1 $fzero $cond
+	fcmp $f1 $fzero $cond
 	bge $cond FLOOR_POSITIVE	# if ($f1 >= 0) FLOOR_POSITIVE
 	store $sp $ra 0
 	addi $sp $sp 1
