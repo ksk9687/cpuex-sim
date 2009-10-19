@@ -37,6 +37,7 @@ LOOP:
 	mov $b $a			# $a = $b
 	mov $t $b			# $b = $t
 	addi $n $n -1		# $n = $n - 1
+	break
 	b LOOP
 END:
 	write $a $a

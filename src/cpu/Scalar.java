@@ -193,9 +193,7 @@ public class Scalar extends CPU {
 		memory[address] = i;
 	}
 	
-	long clock = 0;
 	public void clock() {
-		clock++;
 		if (pc < 0 || pc >= MEMORYSIZE) {
 			throw new ExecuteException(String.format("IllegalPC: %08x", pc));
 		}
@@ -453,6 +451,32 @@ public class Scalar extends CPU {
 					throw e;
 				}
 			}
+		}
+	}
+	
+	static class Count extends Debug {
+		
+		long[] countOpe = new long[64];
+		long[] countCall = new long[MEMORYSIZE];
+		long total = 0;
+		public void clock() {
+			total++;
+			int ope = memory[pc];
+			int opecode = ope >>> 26;
+			int address = ope & ((1 << (26)) - 1);
+			countOpe[opecode]++;
+			if (opecode == 19) {
+				System.err.printf("Total: %,d%n", total);
+				for (int i = 0; i < 64; i++) {
+					System.err.printf("%d: %,d%n", i, countOpe[i]);
+				}
+				for (int i = 0; i < MEMORYSIZE; i++) if (countCall[i] > 0) {
+					System.err.printf("%s: %,d%n", Arrays.toString(ss[i].labels), countCall[i]);
+				}
+			} else if (opecode == 14) {
+				countCall[address]++;
+			}
+			super.clock();
 		}
 	}
 	
