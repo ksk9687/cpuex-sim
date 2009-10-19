@@ -114,7 +114,7 @@ min_caml_floor:
 	ret
 FLOOR_POSITIVE:
 	load $zero $mf FLOAT_MAGICF
-	cmp $f1 $mf $cond
+	fcmp $f1 $mf $cond
 	ble $cond FLOOR_POSITIVE_MAIN
 	ret
 FLOOR_POSITIVE_MAIN:
