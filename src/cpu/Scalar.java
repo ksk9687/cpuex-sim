@@ -131,9 +131,9 @@ public class Scalar extends CPU {
 			p.end();
 			return typeI(15, reg(allregs, rs), 0, 0);
 		} else if (s.equals("read")) {
-			String rs = p.nextReg();
+			String rt = p.nextReg();
 			p.end();
-			return typeI(16, reg(allregs, rs), 0, 0);
+			return typeI(16, 0, reg(allregs, rt), 0);
 		} else if (s.equals("write")) {
 			String rs = p.nextReg();
 			String rt = p.nextReg();
@@ -151,6 +151,10 @@ public class Scalar extends CPU {
 			String rd = p.nextReg();
 			p.end();
 			return typeR(20, reg(allregs, rs), reg(allregs, rt), reg(allregs, rd));
+		} else if (s.equals("ledout")) {
+			String rs = p.nextReg();
+			p.end();
+			return typeR(21, reg(allregs, rs), 0, 0);
 		} else {
 			throw new ParseException();
 		}
@@ -255,7 +259,7 @@ public class Scalar extends CPU {
 		} else if (opecode == 15) { //jr
 			pc = register[rs];
 		} else if (opecode == 16) { //read
-			register[rs] = read();
+			register[rt] = read();
 			pc++;
 		} else if (opecode == 17) { //write
 			register[rt] = write(register[rs]);
@@ -266,6 +270,9 @@ public class Scalar extends CPU {
 			throw new ExecuteException("Finished!");
 		} else if (opecode == 20) { //fcmp
 			register[rd] = fcmp(register[rs], register[rt]);
+			pc++;
+		} else if (opecode == 21) { //ledout
+			System.err.printf("LED: %s%n", toBinary(register[rs]).substring(24));
 			pc++;
 		} else {
 			throw new ExecuteException(String.format("IllegalOperation: %08x", ope));
