@@ -100,17 +100,38 @@ min_caml_rsqrt_table:
 ######################################################################
 # * floor
 ######################################################################
-# floor(f) = itof(ftoi(f)) という適当仕様
-# これじゃおそらく明らかに誤差るので、まだ要実装
 min_caml_floor:
+	cmp $f1 $fzero $cond
+	bge $cond FLOOR_POSITIVE	# if ($f1 >= 0) FLOOR_POSITIVE
 	store $sp $ra 0
 	addi $sp $sp 1
-	jal min_caml_int_of_float
-	jal min_caml_float_of_int
+	fsub $fzero $f1 $f1
+	jal min_caml_floor		# $f1 = FLOOR_POSITIVE(-$f1)
+	load $zero $f2 FLOOR_MONE
+	fsub $f2 $f1 $f1		# $f1 = (-1) - $f1
 	addi $sp $sp -1
 	load $sp $ra 0
-	jr $ra
-
+	ret
+FLOOR_POSITIVE:
+	load $zero $mf FLOAT_MAGICF
+	cmp $f1 $mf $cond
+	ble $cond FLOOR_POSITIVE_MAIN
+	ret
+FLOOR_POSITIVE_MAIN:
+	store $sp $f1 0
+	fadd $f1 $mf $f1		# $f1 += 0x4b000000
+	fsub $f1 $mf $f1		# $f1 -= 0x4b000000
+	load $sp $f2 0
+	fcmp $f1 $f2 $cond
+	ble $cond FLOOR_RET
+	load $zero $f2 FLOOR_ONE
+	fsub $f1 $f2 $f1		# 返り値が元の値より大きければ1.0引く
+FLOOR_RET:
+	ret
+FLOOR_ONE:
+	.float 1.0
+FLOOR_MONE:
+	.float -1.0
 
 ######################################################################
 # * float_of_int
@@ -309,22 +330,6 @@ min_caml_write:
 	write $i1, $i2
 	cmp $i2, $zero, $i3
 	bg $i3, min_caml_write
-	ret
-
-######################################################################
-# * ledout_int
-# * バイトLED出力
-######################################################################
-min_caml_ledout_int:
-	ledout $i1
-	ret
-
-######################################################################
-# * ledout_float
-# * バイトLED出力
-######################################################################
-min_caml_ledout_float:
-	ledout $f1
 	ret
 
 ######################################################################
