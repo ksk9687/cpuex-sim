@@ -461,7 +461,8 @@ public class Scalar extends CPU {
 		}
 	}
 	
-	static class Count extends Debug {
+	static class Count extends Scalar {
+		String[] NAME = {"add", "addi", "sub", "srl", "sll", "fadd", "fsub", "fmul", "finv", "load", "li", "store", "cmp", "jmp", "jal", "jr", "read", "write", "nop", "halt", "fcmp", "ledout"};
 		
 		long[] countOpe = new long[64];
 		long[] countCall = new long[MEMORYSIZE];
@@ -473,12 +474,18 @@ public class Scalar extends CPU {
 			int address = ope & ((1 << (26)) - 1);
 			countOpe[opecode]++;
 			if (opecode == 19) {
-				System.err.printf("Total: %,d%n", total);
-				for (int i = 0; i < 64; i++) {
-					System.err.printf("%d: %,d%n", i, countOpe[i]);
+				System.err.println("* 命令実行数");
+				System.err.printf("| Total | %,d |%n", total);
+				for (int i = 0; i < NAME.length; i++) {
+					System.err.printf("| %s | %,d |%n", NAME[i], countOpe[i]);
 				}
-				for (int i = 0; i < MEMORYSIZE; i++) if (countCall[i] > 0) {
-					System.err.printf("%s: %,d%n", Arrays.toString(ss[i].labels), countCall[i]);
+				System.err.println();
+				System.err.println("* 関数呼び出し数(jalのみ)");
+				for (int i = 0; i < MEMORYSIZE; i++) if (countCall[i] > 0 && ss[i].labels.length > 0) {
+					String name = ss[i].labels[0];
+					if (name.startsWith("min_caml_")) name = name.substring("min_caml_".length());
+					if (name.indexOf('.') >= 0) name = name.substring(0, name.indexOf('.'));
+					System.err.printf("| %s | %,d |%n", name, countCall[i]);
 				}
 			} else if (opecode == 14) {
 				countCall[address]++;
