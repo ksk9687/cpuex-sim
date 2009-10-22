@@ -22,11 +22,11 @@
 .define { bge %Reg %Imm } { jmp %1 1 %2 }
 .define { ret } { jr $ra }
 
-.define	$zero $i0
-.define	$n $i1
-.define	$a $i2
-.define	$b $i3
-.define	$t $i4
+.define	$zero $0
+.define	$n $1
+.define	$a $2
+.define	$b $3
+.define	$t $4
 
 	load $zero $n N		# $n = [N]
 	li $b 1				# $b = 1

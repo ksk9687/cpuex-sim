@@ -2,7 +2,6 @@ package cpu;
 
 import static util.Utils.*;
 import java.awt.*;
-import java.util.*;
 import javax.swing.*;
 import javax.swing.table.*;
 import sim.*;
@@ -25,25 +24,17 @@ public abstract class CPU {
 	protected static int imm(int i, int len, boolean signExt) {
 		if (i < 0) {
 			if (!signExt || i <= (-1 ^ 1 << (len - 1))) {
-				throw new AssembleException("オペランドの値が不正です");
+				throw new AssembleException("オペランドが不正です");
 			}
 		} else {
 			if (i >= 1 << len) {
-				throw new AssembleException("オペランドの値が不正です");
+				throw new AssembleException("オペランドが不正です");
 			}
 			if (signExt && i >= 1 << (len - 1)) {
-				//行数も表示
-				System.err.printf("警告: %s%n", Assembler.s.createMessage("符号拡張により負の数となります"));
+				throw new AssembleException("符号拡張により負の数となります");
 			}
 		}
 		return getBits(i, len - 1, 0);
-	}
-	
-	protected static int reg(Map<String, Integer> regs, String reg) {
-		if (!regs.containsKey(reg)) {
-			throw new AssembleException("レジスタが不正です");
-		}
-		return regs.get(reg);
 	}
 	
 	public abstract int getBinary(Parser p);

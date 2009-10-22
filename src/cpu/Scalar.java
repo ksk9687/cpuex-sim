@@ -13,19 +13,6 @@ import asm.*;
 
 public class Scalar extends CPU {
 	
-	protected HashMap<String, Integer> iregs = new HashMap<String, Integer>();
-	protected HashMap<String, Integer> fregs = new HashMap<String, Integer>();
-	protected HashMap<String, Integer> allregs = new HashMap<String, Integer>();
-	protected String[] regNames;
-	
-	public Scalar() {
-		regNames = new String[32];
-		for (int i = 0; i < 16; i++) fregs.put(regNames[i] = "$f" + i, i);
-		for (int i = 0; i < 16; i++) iregs.put(regNames[i + 16] = "$i" + i, i + 16);
-		allregs.putAll(iregs);
-		allregs.putAll(fregs);
-	}
-	
 	protected static int typeR(int op, int rs, int rt, int rd) {
 		return op << 26 | rs << 21 | rt << 16 | rd << 11;
 	}
@@ -38,107 +25,111 @@ public class Scalar extends CPU {
 		return op << 26 | imm;
 	}
 	
+	protected static int reg(int r) {
+		return imm(r, 5, false);
+	}
+	
 	public int getBinary(Parser p) {
 		String s = p.next();
 		if (s.equals("add")) {
-			String rs = p.nextReg();
-			String rt = p.nextReg();
-			String rd = p.nextReg();
+			int rs = p.nextReg();
+			int rt = p.nextReg();
+			int rd = p.nextReg();
 			p.end();
-			return typeR(0, reg(iregs, rs), reg(iregs, rt), reg(iregs, rd));
+			return typeR(0, reg(rs), reg(rt), reg(rd));
 		} else if (s.equals("addi")) {
-			String rs = p.nextReg();
-			String rt = p.nextReg();
+			int rs = p.nextReg();
+			int rt = p.nextReg();
 			int i = p.nextImm();
 			p.end();
-			return typeI(1, reg(allregs, rs), reg(allregs, rt), imm(i, 16, true));
+			return typeI(1, reg(rs), reg(rt), imm(i, 16, true));
 		} else if (s.equals("sub")) {
-			String rs = p.nextReg();
-			String rt = p.nextReg();
-			String rd = p.nextReg();
+			int rs = p.nextReg();
+			int rt = p.nextReg();
+			int rd = p.nextReg();
 			p.end();
-			return typeR(2, reg(iregs, rs), reg(iregs, rt), reg(iregs, rd));
+			return typeR(2, reg(rs), reg(rt), reg(rd));
 		} else if (s.equals("srl")) {
-			String rs = p.nextReg();
-			String rt = p.nextReg();
+			int rs = p.nextReg();
+			int rt = p.nextReg();
 			int i = p.nextImm();
 			p.end();
-			return typeI(3, reg(allregs, rs), reg(allregs, rt), imm(i, 5, false));
+			return typeI(3, reg(rs), reg(rt), imm(i, 5, false));
 		} else if (s.equals("sll")) {
-			String rs = p.nextReg();
-			String rt = p.nextReg();
+			int rs = p.nextReg();
+			int rt = p.nextReg();
 			int i = p.nextImm();
 			p.end();
-			return typeI(4, reg(allregs, rs), reg(allregs, rt), imm(i, 5, false));
+			return typeI(4, reg(rs), reg(rt), imm(i, 5, false));
 		} else if (s.equals("fadd")) {
-			String rs = p.nextReg();
-			String rt = p.nextReg();
-			String rd = p.nextReg();
+			int rs = p.nextReg();
+			int rt = p.nextReg();
+			int rd = p.nextReg();
 			p.end();
-			return typeR(5, reg(fregs, rs), reg(fregs, rt), reg(fregs, rd));
+			return typeR(5, reg(rs), reg(rt), reg(rd));
 		} else if (s.equals("fsub")) {
-			String rs = p.nextReg();
-			String rt = p.nextReg();
-			String rd = p.nextReg();
+			int rs = p.nextReg();
+			int rt = p.nextReg();
+			int rd = p.nextReg();
 			p.end();
-			return typeR(6, reg(fregs, rs), reg(fregs, rt), reg(fregs, rd));
+			return typeR(6, reg(rs), reg(rt), reg(rd));
 		} else if (s.equals("fmul")) {
-			String rs = p.nextReg();
-			String rt = p.nextReg();
-			String rd = p.nextReg();
+			int rs = p.nextReg();
+			int rt = p.nextReg();
+			int rd = p.nextReg();
 			p.end();
-			return typeR(7, reg(fregs, rs), reg(fregs, rt), reg(fregs, rd));
+			return typeR(7, reg(rs), reg(rt), reg(rd));
 		} else if (s.equals("finv")) {
-			String rs = p.nextReg();
-			String rd = p.nextReg();
+			int rs = p.nextReg();
+			int rd = p.nextReg();
 			p.end();
-			return typeR(8, reg(fregs, rs), 0, reg(fregs, rd));
+			return typeR(8, reg(rs), 0, reg(rd));
 		} else if (s.equals("load")) {
-			String rs = p.nextReg();
-			String rt = p.nextReg();
+			int rs = p.nextReg();
+			int rt = p.nextReg();
 			int i = p.nextImm();
 			p.end();
-			return typeI(9, reg(allregs, rs), reg(allregs, rt), imm(i, 16, true));
+			return typeI(9, reg(rs), reg(rt), imm(i, 16, true));
 		} else if (s.equals("li")) {
-			String rt = p.nextReg();
+			int rt = p.nextReg();
 			int i = p.nextImm();
 			p.end();
-			return typeI(10, 0, reg(allregs, rt), imm(i, 16, true));
+			return typeI(10, 0, reg(rt), imm(i, 16, true));
 		} else if (s.equals("store")) {
-			String rs = p.nextReg();
-			String rt = p.nextReg();
+			int rs = p.nextReg();
+			int rt = p.nextReg();
 			int i = p.nextImm();
 			p.end();
-			return typeI(11, reg(allregs, rs), reg(allregs, rt), imm(i, 16, true));
+			return typeI(11, reg(rs), reg(rt), imm(i, 16, true));
 		} else if (s.equals("cmp")) {
-			String rs = p.nextReg();
-			String rt = p.nextReg();
-			String rd = p.nextReg();
+			int rs = p.nextReg();
+			int rt = p.nextReg();
+			int rd = p.nextReg();
 			p.end();
-			return typeR(12, reg(allregs, rs), reg(allregs, rt), reg(allregs, rd));
+			return typeR(12, reg(rs), reg(rt), reg(rd));
 		} else if (s.equals("_jmp")) {
-			String rs = p.nextReg();
+			int rs = p.nextReg();
 			int t = p.nextImm();
 			int i = p.nextImm();
 			p.end();
-			return typeI(13, reg(allregs, rs), imm(t, 3, false), imm(i, 16, true));
+			return typeI(13, reg(rs), imm(t, 3, false), imm(i, 16, true));
 		} else if (s.equals("jal")) {
 			int i = p.nextImm();
 			p.end();
 			return typeJ(14, imm(i, 26, false));
 		} else if (s.equals("jr")) {
-			String rs = p.nextReg();
+			int rs = p.nextReg();
 			p.end();
-			return typeI(15, reg(allregs, rs), 0, 0);
+			return typeI(15, reg(rs), 0, 0);
 		} else if (s.equals("read")) {
-			String rt = p.nextReg();
+			int rt = p.nextReg();
 			p.end();
-			return typeI(16, 0, reg(allregs, rt), 0);
+			return typeI(16, 0, reg(rt), 0);
 		} else if (s.equals("write")) {
-			String rs = p.nextReg();
-			String rt = p.nextReg();
+			int rs = p.nextReg();
+			int rt = p.nextReg();
 			p.end();
-			return typeI(17, reg(allregs, rs), reg(allregs, rt), 0);
+			return typeI(17, reg(rs), reg(rt), 0);
 		} else if (s.equals("nop")) {
 			p.end();
 			return typeJ(18, 0);
@@ -146,15 +137,15 @@ public class Scalar extends CPU {
 			p.end();
 			return typeJ(19, 0);
 		} else if (s.equals("fcmp")) {
-			String rs = p.nextReg();
-			String rt = p.nextReg();
-			String rd = p.nextReg();
+			int rs = p.nextReg();
+			int rt = p.nextReg();
+			int rd = p.nextReg();
 			p.end();
-			return typeR(20, reg(allregs, rs), reg(allregs, rt), reg(allregs, rd));
+			return typeR(20, reg(rs), reg(rt), reg(rd));
 		} else if (s.equals("ledout")) {
-			String rs = p.nextReg();
+			int rs = p.nextReg();
 			p.end();
-			return typeR(21, reg(allregs, rs), 0, 0);
+			return typeR(21, reg(rs), 0, 0);
 		} else {
 			throw new ParseException();
 		}
@@ -334,7 +325,7 @@ public class Scalar extends CPU {
 			String[] label = new String[] {"Name", TYPE[type]};
 			String[][] data = new String[REGISTERSIZE][2];
 			for (int i = 0; i < REGISTERSIZE; i++) {
-				data[i][0] = regNames[i];
+				data[i][0] = "$" + i;
 				if (type == 0) data[i][1] = toHex(register[i]);
 				if (type == 1) data[i][1] = "" + register[i];
 				if (type == 2) data[i][1] = toBinary(register[i]);
@@ -422,13 +413,13 @@ public class Scalar extends CPU {
 				p.init();
 				String s = p.next();
 				if (s.equals("debug_int")) {
-					String rs = p.nextReg();
+					int rs = p.nextReg();
 					p.end();
-					return typeI(63, reg(allregs, rs), 0, 0);
+					return typeI(63, reg(rs), 0, 0);
 				} else if (s.equals("debug_float")) {
-					String rs = p.nextReg();
+					int rs = p.nextReg();
 					p.end();
-					return typeI(62, reg(allregs, rs), 0, 0);
+					return typeI(62, reg(rs), 0, 0);
 				} else if (s.equals("break")) {
 					p.end();
 					return typeJ(61,0);

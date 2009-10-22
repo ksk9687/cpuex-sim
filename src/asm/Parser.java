@@ -22,7 +22,7 @@ public class Parser {
 		List<String> list = new ArrayList<String>();
 		for (String s : ss) {
 			if (s.equals("%reg")) {
-				list.add(nextReg());
+				list.add("$" + nextReg());
 			} else if (s.equals("%imm")) {
 				list.add("" + nextImm());
 			} else {
@@ -66,12 +66,16 @@ public class Parser {
 		return copyOfRange(tokens, p, tokens.length - 1);
 	}
 	
-	public String nextReg() {
+	public int nextReg() {
 		String s = next();
-		if (!s.startsWith("$")) {
+		if (!s.startsWith("$") || s.indexOf('-') >= 0) {
 			throw new ParseException();
 		}
-		return s;
+		try {
+			return Integer.parseInt(s.substring(1));
+		} catch (NumberFormatException e) {
+			throw new ParseException();
+		}
 	}
 	
 	public int nextImm() {

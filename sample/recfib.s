@@ -23,12 +23,12 @@
 .define { bge %Reg %Imm } { jmp %1 1 %2 }
 .define { ret } { jr $ra }
 
-.define	$zero $i0
-.define	$one $i1
-.define	$n $i2
-.define	$t $i3
-.define	$sp $i14
-.define	$ra $i15
+.define	$zero $0
+.define	$one $1
+.define	$n $2
+.define	$t $3
+.define	$sp $30
+.define	$ra $31
 main:
 	li $sp STACK		# $sp = STACK
 	li $one 1			# $one = 1
