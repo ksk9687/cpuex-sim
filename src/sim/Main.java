@@ -63,13 +63,13 @@ public class Main {
 		String simIn = null;
 		String simOut = null;
 		String encoding = "UTF-8";
-		String cpuName = CPU.DEFAULT;
+		String cpuName = "";
 		boolean xyx = false;
 		boolean ok = true;
 		try {
 			for (int i = 0; i < args.length; i++) {
 				if (args[i].equals("-cpu")) {
-					cpuName = args[++i].replace('.', '$');
+					cpuName = args[++i];
 				} else if (args[i].equals("-encoding")) {
 					encoding = args[++i];
 				} else if (args[i].equals("-asm")) {
@@ -107,7 +107,7 @@ public class Main {
 		if (simType == 0 && (simIn != null || simOut != null)) ok = false;
 		if (!ok) {
 			System.err.println("使い方: sim file [-cpu s] [-encoding s] [-asm s] [-vhdl s] [-gui] [-cui] [-in s] [-out s]");
-			return;
+			System.exit(1);
 		}
 		CPU cpu = CPU.loadCPU(cpuName);
 		String[] lines = readLines(openInputFile(fileName), encoding);
@@ -127,10 +127,11 @@ public class Main {
 			}
 		}
 		if (vhdlOut != null) {
-			PrintStream out = new PrintStream(openOutputFile(vhdlOut));
+			PrintWriter out = new PrintWriter(openOutputFile(vhdlOut));
 			for (Statement s : ss) {
 				out.printf("\"%s\",%n", toBinary(s.binary));
 			}
+			out.close();
 		}
 		if (xyx) {
 			Random r = new Random();

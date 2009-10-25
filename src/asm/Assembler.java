@@ -9,8 +9,6 @@ import util.*;
 
 public class Assembler {
 	
-	public static Statement s;
-	
 	//linesからコメントの除去・ラベルの抽出・文字列のトークン化を行う
 	private static Statement[] lex(String[] lines) {
 		List<Statement> list = new ArrayList<Statement>();
@@ -139,33 +137,6 @@ public class Assembler {
 		return Pair.make(defs.toArray(new Define[0]), list.toArray(new Statement[0]));
 	}
 	
-	private static int rec(CPU cpu, Parser p, int pc, Define[] defs, int i) {
-		AssembleException ex = null;
-		while (i >= 0) {
-			if (defs[i].from <= pc) {
-				try {
-					p.init();
-					String[] ss = p.match(defs[i].ss, defs[i].st);
-					replace(ss, "%pc", "" + pc);
-					return rec(cpu, new Parser(ss), pc, defs, i - 1);
-				} catch (ParseException e) {
-				} catch (AssembleException e) {
-					if (ex == null) ex = e;
-				}
-			}
-			i--;
-		}
-		try {
-			p.init();
-			return cpu.getBinary(p);
-		} catch (ParseException e) {
-		} catch (AssembleException e) {
-			if (ex == null) ex = e;
-		}
-		if (ex != null) throw ex;
-		throw new ParseException();
-	}
-	
 	//linesをcpu向けにアセンブルし、命令列を返す
 	public static Statement[] assemble(CPU cpu, String[] lines) {
 		try {
@@ -176,11 +147,18 @@ public class Assembler {
 			int pc = 0;
 			for (Statement s : ss) {
 				if (s.isOp) {
+					Parser p = new Parser(s.tokens);
+					for (int i = ds.length - 1; i >= 0; i--) if (ds[i].from <= pc) {
+						try {
+							s.tokens = p.match(ds[i].ss, ds[i].st);
+							replace(s.tokens, "%pc", "" + pc);
+							p = new Parser(s.tokens);
+						} catch (ParseException e) {
+							p.init();
+						}
+					}
 					try {
-						Assembler.s = s;
-						s.binary = rec(cpu, new Parser(s.tokens), pc, ds, ds.length - 1);
-					} catch (ParseException e) {
-						throw new AssembleException(s.createMessage("命令を解釈できません"));
+						s.binary = cpu.getBinary(p);
 					} catch (AssembleException e) {
 						throw new AssembleException(s.createMessage(e.getMessage()));
 					}

@@ -11,16 +11,12 @@ import cpu.*;
 public class Simulator {
 	
 	private CPU cpu;
-	private InputStream in;
-	private OutputStream out;
 	private JFrame frame;
 	private JDesktopPane desktop;
 	
 	public Simulator(CPU cpu, String[] lines, Statement[] ss, InputStream in, OutputStream out) {
 		this.cpu = cpu;
-		this.in = in;
-		this.out = out;
-		cpu.init(this, lines, ss);
+		cpu.init(lines, ss, in, out);
 	}
 	
 	public void runGUI() {
@@ -35,32 +31,10 @@ public class Simulator {
 		try {
 			System.err.println("Simulating...");
 			for (;;) {
-				cpu.clock();
+				cpu.step();
 			}
 		} catch (ExecuteException e) {
 			System.err.println(e.getMessage());
-		}
-	}
-	
-	public int read() {
-		if (in == null) {
-			throw new ExecuteException("Cannot read!");
-		}
-		try {
-			return in.read();
-		} catch (IOException e) {
-			throw new ExecuteException(e.getMessage());
-		}
-	}
-	
-	public int write(int i) {
-		if (out == null) return 0;
-		try {
-			out.write(i & 0xff);
-			out.flush();
-			return 0;
-		} catch (IOException e) {
-			throw new ExecuteException(e.getMessage());
 		}
 	}
 	
@@ -124,13 +98,11 @@ public class Simulator {
 	
 	private class RunView extends SimView {
 		
-		private long clock;
-		private JLabel label;
 		private boolean running;
 		
 		private RunView() {
 			super("Run");
-			setLayout(new GridLayout(3, 1));
+			setLayout(new GridLayout(2, 1));
 			setClosable(false);
 			add(new JButton(new AbstractAction("run") {
 				public void actionPerformed(ActionEvent ae) {
@@ -139,8 +111,7 @@ public class Simulator {
 						public void run() {
 							try {
 								while (running) {
-									cpu.clock();
-									clock++;
+									cpu.step();
 								}
 							} catch (ExecuteException e) {
 								JOptionPane.showMessageDialog(frame, e.getMessage());
@@ -155,22 +126,17 @@ public class Simulator {
 			add(new JButton(new AbstractAction("step") {
 				public void actionPerformed(ActionEvent ae) {
 					try {
-						cpu.clock();
-						clock++;
+						cpu.step();
 					} catch (ExecuteException e) {
 						JOptionPane.showMessageDialog(frame, e.getMessage());
 					}
 					refreshAll();
 				}
 			}));
-			label = new JLabel("Clock");
-			label.setHorizontalAlignment(JLabel.CENTER);
-			add(label);
 			pack();
 		}
 		
 		public void refresh() {
-			label.setText(String.format("%,d clock", clock));
 		}
 		
 	}
