@@ -95,6 +95,10 @@ public abstract class CPU {
 		for (int i = 0; i < ss.length; i++) {
 			mems[i] = ss[i].binary;
 		}
+		init();
+	}
+	
+	protected void init() {
 	}
 	
 	public final void step() {
@@ -104,8 +108,8 @@ public abstract class CPU {
 		if (pc < 0 || pc >= MEMORYSIZE) {
 			throw new ExecuteException(String.format("IllegalPC: %08x", pc));
 		}
-		step(mems[pc]);
 		instruction++;
+		step(mems[pc]);
 	}
 	
 	protected void step(int ope) {

@@ -13,7 +13,7 @@
 .define { mov %Reg %Reg } { addi %1 %2 0 }
 .define { neg %Reg %Reg } { sub $zero %1 %2 }
 .define { fneg %Reg %Reg } { fsub $fzero %1 %2 }
-.define { b %Imm } { jmp $i0 0 %1 }
+.define { b %Imm } { jmp $0 0 %1 }
 .define { be %Reg %Imm } { jmp %1 5 %2 }
 .define { bne %Reg %Imm } { jmp %1 2 %2 }
 .define { bl %Reg %Imm } { jmp %1 6 %2 }
@@ -37,7 +37,6 @@ LOOP:
 	mov $b $a			# $a = $b
 	mov $t $b			# $b = $t
 	addi $n $n -1		# $n = $n - 1
-	break
 	b LOOP
 END:
 	write $a $a
