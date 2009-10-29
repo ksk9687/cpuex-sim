@@ -102,18 +102,17 @@ public class SuperScalar extends CPU {
 	
 	protected final void step(int ope) {
 		int opecode = ope >>> 26;
-		int rs = ope >>> 21 & (REGISTERSIZE - 1);
-		int rt = ope >>> 16 & (REGISTERSIZE - 1);
-		int rd = ope >>> 11 & (REGISTERSIZE - 1);
-		int imm = ope & ((1 << 16) - 1);
-		int addr = ope & ((1 << (26)) - 1);
+		int rs = ope >>> 20 & (REGISTERSIZE - 1);
+		int rt = ope >>> 14 & (REGISTERSIZE - 1);
+		int rd = ope >>> 8 & (REGISTERSIZE - 1);
+		int imm = ope & ((1 << 14) - 1);
 		clock += 1;
-		step(ope, opecode, rs, rt, rd, imm, addr);
+		step(ope, opecode, rs, rt, rd, imm);
 	}
 	
-	protected void step(int ope, int opecode, int rs, int rt, int rd, int imm, int addr) {
+	protected void step(int ope, int opecode, int rs, int rt, int rd, int imm) {
 		if (opecode == 000) { //li
-			regs[rd] = imm;
+			regs[rt] = imm;
 			pc++;
 		} else if (opecode == 010) { //add
 			regs[rd] = regs[rs] + regs[rt];
