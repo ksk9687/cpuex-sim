@@ -201,4 +201,34 @@ public class SuperScalar extends CPU {
 		}
 	}
 	
+	//Debug
+	protected static class Debug extends SuperScalar {
+		
+		protected int getBinary(String op, Parser p) {
+			if (op.equals("debug_int")) {
+				return typeI(060, 1, reg(p), 0);
+			} else if (op.equals("debug_float")) {
+				return typeI(060, 2, reg(p), 0);
+			} else if (op.equals("break")) {
+				return typeI(060, 3, 0, 0);
+			}
+			return super.getBinary(op, p);
+		}
+		
+		protected void step(int ope, int opecode, int rs, int rt, int rd, int imm) {
+			if (opecode == 060 && rs == 1) { //debug_int
+				System.err.printf("%s(%d)%n", toHex(regs[rt]), regs[rt]);
+				pc++;
+			} else if (opecode == 060 && rs == 2) { //debug_float
+				System.err.printf("%.6E%n", itof(regs[rt]));
+				pc++;
+			} else if (opecode == 060 && rs == 3) { //break
+				pc++;
+				throw new ExecuteException("Break!");
+			} else {
+				super.step(ope, opecode, rs, rt, rd, imm);
+			}
+		}
+	}
+	
 }

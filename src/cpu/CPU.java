@@ -179,7 +179,9 @@ public abstract class CPU {
 		}
 		try {
 			readByteNum++;
-			return in.read();
+			int i = in.read();
+			if (i < 0) throw new ExecuteException("Cannot read!");
+			return i;
 		} catch (IOException e) {
 			throw new ExecuteException(e.getMessage());
 		}
