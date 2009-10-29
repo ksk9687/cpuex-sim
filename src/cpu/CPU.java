@@ -12,7 +12,7 @@ import asm.*;
 
 public abstract class CPU {
 	
-	private static final String DEFAULT = "Scalar";
+	private static final String DEFAULT = "SuperScalar";
 	
 	public static CPU loadCPU(String name) {
 		String s = name;

@@ -5,40 +5,91 @@
 #$a=fib n
 #$b=fib (n+1)
 #$t=一時変数
+.define $n $1
+.define $a $2
+.define $b $3
+.define $t $4
 
-#jmp
-.define { jmp %Reg %Imm %Imm } { _jmp %1 %2 %{ %3 - %pc } }
+######################################################################
+#
+# 		↓　ここから macro.s
+#
+######################################################################
+
+#レジスタ名置き換え
+.define $zero $0
+.define $ra $63
+.define $sp $62
+.define $hp $61
+.define $tmp $60
+.define $0 orz
+.define $63 orz
+.define $62 orz
+.define $61 orz
+.define $60 orz
 
 #疑似命令
-.define { mov %Reg %Reg } { addi %1 %2 0 }
 .define { neg %Reg %Reg } { sub $zero %1 %2 }
-.define { fneg %Reg %Reg } { fsub $fzero %1 %2 }
-.define { b %Imm } { jmp $0 0 %1 }
-.define { be %Reg %Imm } { jmp %1 5 %2 }
-.define { bne %Reg %Imm } { jmp %1 2 %2 }
-.define { bl %Reg %Imm } { jmp %1 6 %2 }
-.define { ble %Reg %Imm } { jmp %1 4 %2 }
-.define { bg %Reg %Imm } { jmp %1 3 %2 }
-.define { bge %Reg %Imm } { jmp %1 1 %2 }
+.define { b %Imm } { jmp 0 %1 }
+.define { be %Imm } { jmp 5 %1 }
+.define { bne %Imm } { jmp 2 %1 }
+.define { bl %Imm } { jmp 6 %1 }
+.define { ble %Imm } { jmp 4 %1 }
+.define { bg %Imm } { jmp 3 %1 }
+.define { bge %Imm } { jmp 1 %1 }
 .define { ret } { jr $ra }
 
-.define	$zero $0
-.define	$n $1
-.define	$a $2
-.define	$b $3
-.define	$t $4
+# 入力,出力の順にコンマで区切る形式
+.define { li %Imm, %Reg } { li %2 %1 }
+.define { add %Reg, %Reg, %Reg } { add %1 %2 %3 }
+.define { add %Reg, %Imm, %Reg } { addi %1 %3 %2 }
+.define { sub %Reg, %Reg, %Reg } { sub %1 %2 %3 }
+.define { sub %Reg, %Imm, %Reg } { addi %1 %3 -%2 }
+.define { sll %Reg, %Imm, %Reg } { sll %1 %3 %2 }
+.define { cmp %Reg, %Reg } { cmp %1 %2 }
+.define { cmp %Reg, %Imm } { cmpi %1 %2 }
+.define { fadd %Reg, %Reg, %Reg } { fadd %1 %2 %3 }
+.define { fsub %Reg, %Reg, %Reg } { fsub %1 %2 %3 }
+.define { fmul %Reg, %Reg, %Reg } { fmul %1 %2 %3 }
+.define { finv %Reg, %Reg } { finv %1 %2 }
+.define { fsqrt %Reg, %Reg } { fsqrt %1 %2 }
+.define { fcmp %Reg, %Reg } { fcmp %1 %2 }
+.define { fabs %Reg, %Reg } { fabs %1 %2 }
+.define { fneg %Reg, %Reg } { fneg %1 %2 }
+.define { load [%Reg + %Imm], %Reg } { load %1 %3 %2 }
+.define { load [%Reg - %Imm], %Reg } { load [%1 + -%2], %3}
+.define { load [%Reg], %Reg } { load [%1 + 0], %2 }
+.define { load [%Imm], %Reg } { load [$zero + %1], %2 }
+.define { load [%Reg + %Reg], %Reg } { loadr %1 %2 %3 }
+.define { store %Reg, [%Reg + %Imm] } { store %2 %1 %3 }
+.define { store %Reg, [%Reg - %Imm] } { store %1, [%2 + -%3] }
+.define { store %Reg, [%Reg] } { store %1, [%1 + 0] }
+.define { store %Reg, [%Imm] } { store %1, [$zero + %2] }
+.define { mov %Reg, %Reg } { mov %1 %2 }
 
-	load $zero $n N		# $n = [N]
-	li $b 1				# $b = 1
+#スタックとヒープの初期化
+	li      0x1000, $hp
+	sll		$hp, 4, $hp
+	sll     $hp, 3, $sp
+
+######################################################################
+#
+# 		↑　ここまで macro.s
+#
+######################################################################
+
+
+	load [N], $n		# $n = [N]
+	li 1, $b			# $b = 1
 LOOP:
-	cmp $n $zero $t		# $t = cmp $n 0
-	ble $t END
-	add $a $b $t		# $t = $a + $b
-	mov $b $a			# $a = $b
-	mov $t $b			# $b = $t
-	addi $n $n -1		# $n = $n - 1
+	cmp $n, $zero		# $t = cmp $n 0
+	ble END
+	add $a, $b, $t		# $t = $a + $b
+	mov $b, $a			# $a = $b
+	mov $t, $b			# $b = $t
+	add $n, -1, $n		# $n = $n - 1
 	b LOOP
 END:
-	write $a $a
+	write $a
 	halt
 N:	.int 10

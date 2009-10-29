@@ -76,9 +76,9 @@ public class SuperScalar extends CPU {
 		} else if (op.equals("jmp")) {
 			return typeI(070, imm(p, 3, false), 0, imm(p, 14, false));
 		} else if (op.equals("jal")) {
-			return typeI(071, reg(p), 0, 0);
+			return typeI(071, 0, 0, imm(p, 14, false));
 		} else if (op.equals("jr")) {
-			return typeI(072, 0, 0, 0);
+			return typeI(072, reg(p), 0, 0);
 		}
 		return super.getBinary(op, p);
 	}
