@@ -54,7 +54,7 @@ public class SuperScalar extends CPU {
 		} else if (op.equals("load")) {
 			return typeI(030, reg(p), reg(p), imm(p, 14, true));
 		} else if (op.equals("loadr")) {
-			return typeI(031, reg(p), reg(p), reg(p));
+			return typeR(031, reg(p), reg(p), reg(p));
 		} else if (op.equals("store")) {
 			return typeI(032, reg(p), reg(p), imm(p, 14, true));
 		} else if (op.equals("hsread")) {
