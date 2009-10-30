@@ -130,7 +130,7 @@ public class SuperScalar extends CPU {
 			cond = cmp(regs[rs], regs[rt]);
 			pc++;
 		} else if (opecode == 003) { //cmpi
-			cond = cmp(regs[rs], imm);
+			cond = cmp(regs[rs], signExt(imm, 14));
 			pc++;
 		} else if (opecode == 020) { //fadd
 			regs[rd] = ftoi(itof(regs[rs]) + itof(regs[rt]));
