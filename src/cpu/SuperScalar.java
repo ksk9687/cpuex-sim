@@ -89,6 +89,8 @@ public class SuperScalar extends CPU {
 	protected void init() {
 		super.init();
 		cond = 0;
+		countOpe = new long[64];
+		countCall = new long[MEMORYSIZE];
 	}
 	
 	protected static int cmp(int a, int b) {
@@ -107,6 +109,7 @@ public class SuperScalar extends CPU {
 		int rd = ope >>> 8 & (REGISTERSIZE - 1);
 		int imm = ope & ((1 << 14) - 1);
 		clock += 1;
+		countOpe[opecode]++;
 		step(ope, opecode, rs, rt, rd, imm);
 	}
 	
@@ -181,6 +184,7 @@ public class SuperScalar extends CPU {
 		} else if (opecode == 060) { //nop
 			pc++;
 		} else if (opecode == 061) { //halt
+			printStat();
 			halted = true;
 		} else if (opecode == 047) { //mov
 			regs[rt] = regs[rs];
@@ -192,12 +196,65 @@ public class SuperScalar extends CPU {
 				pc++;
 			}
 		} else if (opecode == 071) { //jal
+			countCall[imm]++;
 			regs[63] = pc + 1;
 			pc = imm;
 		} else if (opecode == 072) { //jr
 			pc = regs[rs];
 		} else {
 			super.step(ope);
+		}
+	}
+	
+	//Stat
+	protected static final String[] NAME = new String[64];
+	static {
+		NAME[000] = "li";
+		NAME[010] = "add";
+		NAME[001] = "addi";
+		NAME[011] = "sub";
+		NAME[002] = "sll";
+		NAME[012] = "cmp";
+		NAME[003] = "cmpi";
+		NAME[020] = "fadd";
+		NAME[021] = "fsub";
+		NAME[022] = "fmul";
+		NAME[023] = "finv";
+		NAME[024] = "fsqrt";
+		NAME[025] = "fcmp";
+		NAME[026] = "fabs";
+		NAME[027] = "fneg";
+		NAME[030] = "load";
+		NAME[031] = "loadr";
+		NAME[032] = "store";
+		NAME[040] = "hsread";
+		NAME[041] = "hswrite";
+		NAME[050] = "read";
+		NAME[051] = "write";
+		NAME[052] = "ledout";
+		NAME[060] = "nop";
+		NAME[061] = "halt";
+		NAME[047] = "mov";
+		NAME[070] = "jmp";
+		NAME[071] = "jal";
+		NAME[072] = "jr";
+	}
+	protected long[] countOpe;
+	protected long[] countCall;
+	
+	protected void printStat() {
+		System.err.println("* 命令実行数");
+		System.err.printf("| Total | %,d |%n", instruction);
+		for (int i = 0; i < NAME.length; i++) if (NAME[i] != null) {
+			System.err.printf("| %s | %,d (%.3f) |%n", NAME[i], countOpe[i], 100.0 * countOpe[i] / (instruction));
+		}
+		System.err.println();
+		System.err.println("* 関数呼び出し数(jalのみ)");
+		for (int i = 0; i < MEMORYSIZE; i++) if (countCall[i] > 0 && ss[i].labels.length > 0) {
+			String name = ss[i].labels[0];
+			if (name.startsWith("min_caml_")) name = name.substring("min_caml_".length());
+			if (name.indexOf('.') >= 0) name = name.substring(0, name.indexOf('.'));
+			System.err.printf("| %s | %,d |%n", name, countCall[i]);
 		}
 	}
 	

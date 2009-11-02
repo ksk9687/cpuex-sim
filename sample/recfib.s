@@ -7,51 +7,100 @@
 #$sp=スタックポインタ
 #$ra=リンクレジスタ
 #レジスタの退避はcallerが行う
-#jmp
-.define { jmp %Reg %Imm %Imm } { _jmp %1 %2 %{ %3 - %pc } }
+######################################################################
+#
+# 		↓　ここから macro.s
+#
+######################################################################
+
+#レジスタ名置き換え
+.define $zero $0
+.define $ra $63
+.define $sp $62
+.define $hp $61
+.define $tmp $60
+.define $0 orz
+.define $63 orz
+.define $62 orz
+.define $61 orz
+.define $60 orz
 
 #疑似命令
-.define { mov %Reg %Reg } { addi %1 %2 0 }
 .define { neg %Reg %Reg } { sub $zero %1 %2 }
-.define { fneg %Reg %Reg } { fsub $fzero %1 %2 }
-.define { b %Imm } { jmp $i0 0 %1 }
-.define { be %Reg %Imm } { jmp %1 5 %2 }
-.define { bne %Reg %Imm } { jmp %1 2 %2 }
-.define { bl %Reg %Imm } { jmp %1 6 %2 }
-.define { ble %Reg %Imm } { jmp %1 4 %2 }
-.define { bg %Reg %Imm } { jmp %1 3 %2 }
-.define { bge %Reg %Imm } { jmp %1 1 %2 }
+.define { b %Imm } { jmp 0 %1 }
+.define { be %Imm } { jmp 5 %1 }
+.define { bne %Imm } { jmp 2 %1 }
+.define { bl %Imm } { jmp 6 %1 }
+.define { ble %Imm } { jmp 4 %1 }
+.define { bg %Imm } { jmp 3 %1 }
+.define { bge %Imm } { jmp 1 %1 }
 .define { ret } { jr $ra }
 
-.define	$zero $0
+# 入力,出力の順にコンマで区切る形式
+.define { li %Imm, %Reg } { li %2 %1 }
+.define { add %Reg, %Reg, %Reg } { add %1 %2 %3 }
+.define { add %Reg, %Imm, %Reg } { addi %1 %3 %2 }
+.define { sub %Reg, %Reg, %Reg } { sub %1 %2 %3 }
+.define { sub %Reg, %Imm, %Reg } { addi %1 %3 -%2 }
+.define { sll %Reg, %Imm, %Reg } { sll %1 %3 %2 }
+.define { cmp %Reg, %Reg } { cmp %1 %2 }
+.define { cmp %Reg, %Imm } { cmpi %1 %2 }
+.define { fadd %Reg, %Reg, %Reg } { fadd %1 %2 %3 }
+.define { fsub %Reg, %Reg, %Reg } { fsub %1 %2 %3 }
+.define { fmul %Reg, %Reg, %Reg } { fmul %1 %2 %3 }
+.define { finv %Reg, %Reg } { finv %1 %2 }
+.define { fsqrt %Reg, %Reg } { fsqrt %1 %2 }
+.define { fcmp %Reg, %Reg } { fcmp %1 %2 }
+.define { fabs %Reg, %Reg } { fabs %1 %2 }
+.define { fneg %Reg, %Reg } { fneg %1 %2 }
+.define { load [%Reg + %Imm], %Reg } { load %1 %3 %2 }
+.define { load [%Reg - %Imm], %Reg } { load [%1 + -%2], %3}
+.define { load [%Reg], %Reg } { load [%1 + 0], %2 }
+.define { load [%Imm], %Reg } { load [$zero + %1], %2 }
+.define { load [%Reg + %Reg], %Reg } { loadr %1 %2 %3 }
+.define { store %Reg, [%Reg + %Imm] } { store %2 %1 %3 }
+.define { store %Reg, [%Reg - %Imm] } { store %1, [%2 + -%3] }
+.define { store %Reg, [%Reg] } { store %1, [%1 + 0] }
+.define { store %Reg, [%Imm] } { store %1, [$zero + %2] }
+.define { mov %Reg, %Reg } { mov %1 %2 }
+
+#スタックとヒープの初期化
+	li      0x1000, $hp
+	sll		$hp, 4, $hp
+	sll     $hp, 3, $sp
+
+######################################################################
+#
+# 		↑　ここまで macro.s
+#
+######################################################################
 .define	$one $1
 .define	$n $2
 .define	$t $3
-.define	$sp $30
-.define	$ra $31
+
 main:
-	li $sp STACK		# $sp = STACK
-	li $one 1			# $one = 1
-	load $zero $n N		# $n = [N]
+	li STACK, $sp		# $sp = STACK
+	li 1, $one			# $one = 1
+	load [N], $n		# $n = [N]
 	jal FIB				## $n = fib $n
-	write $n $n
+	write $n
 	halt
 FIB:
-	cmp $n $one $t		# $t = cmp $n 1
-	ble $t RET
-	addi $sp $sp 3		# $sp = $sp + 3
-	store $sp $n -3		# [$sp - 3] = $n
-	store $sp $ra -1	# [$sp - 1] = $ra
-	addi $n $n -1		# $n = $n - 1
+	cmp $n, $one		# $t = cmp $n 1
+	ble RET
+	add $sp, 3, $sp		# $sp = $sp + 3
+	store $n, [$sp - 3]	# [$sp - 3] = $n
+	store $ra, [$sp - 1]# [$sp - 1] = $ra
+	add $n, -1, $n		# $n = $n - 1
 	jal FIB				## $n = fib $n
-	store $sp $n -2		# [$sp - 2] = $n
-	load $sp $n -3		# $n = [$sp - 3]
-	addi $n $n -2		# $n = $n - 2
+	store $n, [$sp - 2]	# [$sp - 2] = $n
+	load [$sp - 3], $n	# $n = [$sp - 3]
+	add $n, -2, $n		# $n = $n - 2
 	jal FIB				## $n = fib $n
-	load $sp $t -2		# $t = [$sp - 2]
-	add $n $t $n		# $n = $n + $t
-	load $sp $ra -1		# $ra = [$sp - 2]
-	addi $sp $sp -3		# $sp = $sp + 3
+	load [$sp - 2], $t	# $t = [$sp - 2]
+	add $n, $t, $n		# $n = $n + $t
+	load [$sp - 1], $ra	# $ra = [$sp - 2]
+	add $sp, -3, $sp	# $sp = $sp + 3
 RET:
 	jr $ra
 N:	.int 35
