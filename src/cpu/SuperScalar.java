@@ -93,13 +93,43 @@ public class SuperScalar extends CPU {
 		countCall = new long[MEMORYSIZE];
 	}
 	
-	protected static int cmp(int a, int b) {
+	//ALU
+	protected int cmp(int a, int b) {
 		return a > b ? 4 : a == b ? 2 : 1;
 	}
 	
-	protected static int fcmp(int a, int b) {
+	//FPU
+	protected int fadd(int a, int b) {
+		return ftoi(itof(a) + itof(b));
+	}
+	
+	protected int fsub(int a, int b) {
+		return ftoi(itof(a) - itof(b));
+	}
+	
+	protected int fmul(int a, int b) {
+		return ftoi(itof(a) * itof(b));
+	}
+	
+	protected int finv(int a) {
+		return ftoi(1.0f / itof(a));
+	}
+	
+	protected int fsqrt(int a) {
+		return ftoi((float)sqrt(itof(a)));
+	}
+	
+	protected int fcmp(int a, int b) {
 		float fa = itof(a), fb = itof(b);
 		return fa > fb ? 4 : fa == fb ? 2 : 1;
+	}
+	
+	protected int fabs(int a) {
+		return ftoi(abs(itof(a)));
+	}
+	
+	protected int fneg(int a) {
+		return ftoi(-(itof(a)));
 	}
 	
 	protected final void step(int ope) {
@@ -136,28 +166,28 @@ public class SuperScalar extends CPU {
 			cond = cmp(regs[rs], signExt(imm, 14));
 			pc++;
 		} else if (opecode == 020) { //fadd
-			regs[rd] = ftoi(itof(regs[rs]) + itof(regs[rt]));
+			regs[rd] = fadd(regs[rs], regs[rt]);
 			pc++;
 		} else if (opecode == 021) { //fsub
-			regs[rd] = ftoi(itof(regs[rs]) - itof(regs[rt]));
+			regs[rd] = fsub(regs[rs], regs[rt]);
 			pc++;
 		} else if (opecode == 022) { //fmul
-			regs[rd] = ftoi(itof(regs[rs]) * itof(regs[rt]));
+			regs[rd] = fmul(regs[rs], regs[rt]);
 			pc++;
 		} else if (opecode == 023) { //finv
-			regs[rd] = ftoi(1.0f / itof(regs[rs]));
+			regs[rd] = finv(regs[rs]);
 			pc++;
 		} else if (opecode == 024) { //fsqrt
-			regs[rd] = ftoi((float)sqrt(itof(regs[rs])));
+			regs[rd] = fsqrt(regs[rs]);
 			pc++;
 		} else if (opecode == 025) { //fcmp
 			cond = fcmp(regs[rs], regs[rt]);
 			pc++;
 		} else if (opecode == 026) { //fabs
-			regs[rd] = ftoi(abs(itof(regs[rs])));
+			regs[rd] = fabs(regs[rs]);
 			pc++;
 		} else if (opecode == 027) { //fneg
-			regs[rd] = ftoi(-(itof(regs[rs])));
+			regs[rd] = fneg(regs[rs]);
 			pc++;
 		} else if (opecode == 030) { //load
 			regs[rt] = load(regs[rs] + signExt(imm, 14));
@@ -286,6 +316,13 @@ public class SuperScalar extends CPU {
 				super.step(ope, opecode, rs, rt, rd, imm);
 			}
 		}
+	}
+	
+	//FPU
+	protected static class FPU extends SuperScalar {
+		
+		//TODO:ここにfaddとかをOverrideする
+		
 	}
 	
 }
