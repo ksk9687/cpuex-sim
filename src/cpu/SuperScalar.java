@@ -6,20 +6,20 @@ import sim.*;
 import asm.*;
 
 public class SuperScalar extends CPU {
-
+	
 	public SuperScalar() {
 		super(100e6, 1 << 20, 1 << 6);
 	}
-
+	
 	//Asm
 	protected static int typeR(int op, int rs, int rt, int rd) {
 		return op << 26 | rs << 20 | rt << 14 | rd << 8;
 	}
-
+	
 	protected static int typeI(int op, int rs, int rt, int imm) {
 		return op << 26 | rs << 20 | rt << 14 | imm;
 	}
-
+	
 	protected int getBinary(String op, Parser p) {
 		if (op.equals("li")) {
 			return typeI(000, 0, reg(p), imm(p, 14, false));
@@ -82,56 +82,56 @@ public class SuperScalar extends CPU {
 		}
 		return super.getBinary(op, p);
 	}
-
+	
 	//Sim
 	protected int cond;
-
+	
 	protected void init() {
 		super.init();
 		cond = 0;
 		countOpe = new long[64];
 		countCall = new long[MEMORYSIZE];
 	}
-
+	
 	//ALU
 	protected int cmp(int a, int b) {
 		return a > b ? 4 : a == b ? 2 : 1;
 	}
-
+	
 	//FPU
 	protected int fadd(int a, int b) {
 		return ftoi(itof(a) + itof(b));
 	}
-
+	
 	protected int fsub(int a, int b) {
 		return ftoi(itof(a) - itof(b));
 	}
-
+	
 	protected int fmul(int a, int b) {
 		return ftoi(itof(a) * itof(b));
 	}
-
+	
 	protected int finv(int a) {
 		return ftoi(1.0f / itof(a));
 	}
-
+	
 	protected int fsqrt(int a) {
 		return ftoi((float)sqrt(itof(a)));
 	}
-
+	
 	protected int fcmp(int a, int b) {
 		float fa = itof(a), fb = itof(b);
 		return fa > fb ? 4 : fa == fb ? 2 : 1;
 	}
-
+	
 	protected int fabs(int a) {
 		return ftoi(abs(itof(a)));
 	}
-
+	
 	protected int fneg(int a) {
 		return ftoi(-(itof(a)));
 	}
-
+	
 	protected final void step(int ope) {
 		int opecode = ope >>> 26;
 		int rs = ope >>> 20 & (REGISTERSIZE - 1);
@@ -142,7 +142,7 @@ public class SuperScalar extends CPU {
 		countOpe[opecode]++;
 		step(ope, opecode, rs, rt, rd, imm);
 	}
-
+	
 	protected void step(int ope, int opecode, int rs, int rt, int rd, int imm) {
 		if (opecode == 000) { //li
 			regs[rt] = imm;
@@ -235,7 +235,7 @@ public class SuperScalar extends CPU {
 			super.step(ope);
 		}
 	}
-
+	
 	//Stat
 	protected static final String[] NAME = new String[64];
 	static {
@@ -271,7 +271,7 @@ public class SuperScalar extends CPU {
 	}
 	protected long[] countOpe;
 	protected long[] countCall;
-
+	
 	protected void printStat() {
 		System.err.println("* 命令実行数");
 		System.err.printf("| Total | %,d |%n", instruction);
@@ -287,10 +287,10 @@ public class SuperScalar extends CPU {
 			System.err.printf("| %s | %,d |%n", name, countCall[i]);
 		}
 	}
-
+	
 	//Debug
 	protected static class Debug extends SuperScalar {
-
+		
 		protected int getBinary(String op, Parser p) {
 			if (op.equals("debug_int")) {
 				return typeI(060, 1, reg(p), 0);
@@ -301,7 +301,7 @@ public class SuperScalar extends CPU {
 			}
 			return super.getBinary(op, p);
 		}
-
+		
 		protected void step(int ope, int opecode, int rs, int rt, int rd, int imm) {
 			if (opecode == 060 && rs == 1) { //debug_int
 				System.err.printf("%s(%d)%n", toHex(regs[rt]), regs[rt]);
@@ -317,31 +317,31 @@ public class SuperScalar extends CPU {
 			}
 		}
 	}
-
+	
 	//FPU
 	protected static class FPU extends SuperScalar {
-
+		
 		//TODO:ここにfaddとかをOverrideする
-		@Override
-		protected int fadd(int a, int b) {
+//		@Override
+		protected int fadd2(int a, int b) {
 			if (a == 0) return b;
 			if (b == 0) return a;
-
-			int as = 1 & (a >> 31);
-			int ae = 0xff & (a >> 23);
+			
+			int as = 1 & (a >>> 31);
+			int ae = 0xff & (a >>> 23);
 			int am = 0x7fffff & a;
-
-			int bs = 1 & (a >> 31);
-			int be = 0xff & (a >> 23);
-			int bm = 0x7fffff & a;
-
+			
+			int bs = 1 & (b >>> 31);
+			int be = 0xff & (b >>> 23);
+			int bm = 0x7fffff & b;
+			
 			int re = max(ae, be);
 			int rs, rm;
-
-			int amm = (as == 1 ? -1 : 1) * ((am | (1 << 23)) >> min(31, re - ae));
-			int bmm = (bs == 1 ? -1 : 1) * ((bm | (1 << 23)) >> min(31, re - be));
+			
+			int amm = (as == 1 ? -1 : 1) * ((am | (1 << 23)) >>> min(31, re - ae));
+			int bmm = (bs == 1 ? -1 : 1) * ((bm | (1 << 23)) >>> min(31, re - be));
 			int m = amm + bmm;
-
+			
 			if (m == 0) {
 				rm = rs = re = 0;
 			} else {
@@ -351,153 +351,146 @@ public class SuperScalar extends CPU {
 					rs = 1;
 					m = -m;
 				}
-				while (m >= (1 >> 24)) {
-					m >>= 1;
+				while (m >= (1 << 24)) {
+					m >>>= 1;
 					re++;
 				}
-				while (((m >> 23) & 1) == 0) {
+				while (((m >>> 23) & 1) == 0) {
 					m <<= 1;
 					re--;
 				}
 				rm = m;
 			}
-
+			
 			int r = ((1 & rs) << 31) | ((0xff & re) << 23) | (0x7fffff & rm);
 			return r;
 		}
-
+		
 		@Override
 		protected int fsub(int a, int b) {
 			return fadd(a, fneg(b));
 		}
-
-		@Override
-		protected int fmul(int a, int b) {
+		
+//		@Override
+		protected int fmul2(int a, int b) {
 			int rs, re, rm;
-
-			int as = 1 & (a >> 31);
-			int ae = 0xff & (a >> 23);
+			
+			int as = 1 & (a >>> 31);
+			int ae = 0xff & (a >>> 23);
 			int am = 0x7fffff & a;
-
-			int bs = 1 & (a >> 31);
-			int be = 0xff & (a >> 23);
-			int bm = 0x7fffff & a;
-
+			
+			int bs = 1 & (b >>> 31);
+			int be = 0xff & (b >>> 23);
+			int bm = 0x7fffff & b;
+			
 			long amm = (1 << 23) | am;
 			long bmm = (1 << 23) | bm;
-
-			long ah = amm >> 12, al = amm & ((1 << 12) - 1);
-			long bh = bmm >> 12, bl = bmm & ((1 << 12) - 1);
-
+			
+			long ah = amm >>> 12, al = amm & ((1 << 12) - 1);
+			long bh = bmm >>> 12, bl = bmm & ((1 << 12) - 1);
+			
 			long oh = ah * bh;
-			long om1 = (ah * bl) >> 11;
-			long om2 = (al * bh) >> 11;
-
+			long om1 = (ah * bl) >>> 11;
+			long om2 = (al * bh) >>> 11;
+			
 			long rmm = (oh << 1) + om1 + om2 + 2;
-
+			
 			long ree = (ae - 127) + (be - 127) + 127;
-
-			while ((rmm >> 24) != 0) {
-				rmm >>= 1;
+			
+			while ((rmm >>> 24) != 0) {
+				rmm >>>= 1;
 				ree++;
 			}
-
+			
 			rs = as ^ bs;
 			re = (int)ree;
 			rm = (int)(rmm & ((1 << 23) - 1));
 			int r = ((1 & rs) << 31) | ((0xff & re) << 23) | (0x7fffff & rm);
 			return r;
 		}
-
+		
 		@Override
 		protected int finv(int a) {
 			int rs, re, rm;
-
-			int as = 1 & (a >> 31);
-			int ae = 0xff & (a >> 23);
+			
+			int as = 1 & (a >>> 31);
+			int ae = 0xff & (a >>> 23);
 			int am = 0x7fffff & a;
-
+			
 			long amm = (1 << 23) | am;
-			long x1 = amm >> 12;
+			long x1 = amm >>> 12;
 			long x2 = amm & ((1 << 12) - 1);
-
+			
 			long c = finv_table[(int)(x1 - (1 << 11))];
 			long x = (x1 << 12) | (x2 ^ ((1 << 12) - 1));
-
-			long ch = c >> 12, cl = c & ((1 << 12) - 1);
-			long xh = x >> 12, xl = x & ((1 << 12) - 1);
-
+			
+			long ch = c >>> 12, cl = c & ((1 << 12) - 1);
+			long xh = x >>> 12, xl = x & ((1 << 12) - 1);
+			
 			long oh = ch * xh;
-			long omm1 = (ch * xl) >> 11;
-			long omm2 = (cl * xh) >> 11;
-
+			long omm1 = (ch * xl) >>> 11;
+			long omm2 = (cl * xh) >>> 11;
+			
 			long om1 = (oh << 1) + omm1 + omm2 + 2;
-			long om2 = (om1 & (1L << 24)) != 0 ? (om1 >> 1) : om1;
+			long om2 = (om1 & (1L << 24)) != 0 ? (om1 >>> 1) : om1;
 			long oe = 254 - ae - ((om1 & (1L << 24)) != 0 ? 0 : 1);
-
+			
 			// if (oe <= 0 || 255 <= oe) return false;
-
+			
 			rm = (int) (om2 & ((1 << 23) - 1));
 			re = (int) oe;
 			rs = as;
 			int r = ((1 & rs) << 31) | ((0xff & re) << 23) | (0x7fffff & rm);
 			return r;
 		}
-
-		@Override
-		protected int fsqrt(int a) {
+		
+//		@Override
+		protected int fsqrt2(int a) {
 			if (itof(a) < 0) return ftoi(Float.NaN);
-
+			
 			int rs, re, rm;
-
-			int as = 1 & (a >> 31);
-			int ae = 0xff & (a >> 23);
+			
+			int as = 1 & (a >>> 31);
+			int ae = 0xff & (a >>> 23);
 			int am = 0x7fffff & a;
-
+			
 			long amm = (1 << 23) | am;
-			long oe = 63 + (ae >> 1);
-
-			int idx = (((ae & 1) ^ 1) << 10) | ((am >> 13) ^ (1 << 10));
+			long oe = 63 + (ae >>> 1);
+			
+			int idx = (((ae & 1) ^ 1) << 10) | ((am >>> 13) ^ (1 << 10));
 			long c = fsqrt_table[idx];
-
-			long x1 = amm >> 13;
+			
+			long x1 = amm >>> 13;
 			long x2 = amm & ((1 << 13) - 1);
-
+			
 			long x = 0;
 			x |= x1 << 13;
-			x |= (1 + ((x2 >> 12) & 1)) << 11;
-			x |= (x2 & ((1 << 12) - 1)) >> 1;
-
+			x |= (1 + ((x2 >>> 12) & 1)) << 11;
+			x |= (x2 & ((1 << 12) - 1)) >>> 1;
+			
 			if (a == 0) {
 				x = c = 0;
 				oe = 0;
 			}
-
-			long ch = c >> 12, cl = c & ((1 << 12) - 1);
-			long xh = x >> 12, xl = x & ((1 << 12) - 1);
-
+			
+			long ch = c >>> 12, cl = c & ((1 << 12) - 1);
+			long xh = x >>> 12, xl = x & ((1 << 12) - 1);
+			
 			long oh = ch * xh;
-			long omm1 = (ch * xl) >> 11;
-			long omm2 = (cl * xh) >> 11;
-
+			long omm1 = (ch * xl) >>> 11;
+			long omm2 = (cl * xh) >>> 11;
+			
 			long om1 = (oh << 1) + omm1 + omm2 + 2;
-			long om2 = (om1 & (1L << 24)) != 0 ? (om1 >> 1) : om1;
+			long om2 = (om1 & (1L << 24)) != 0 ? (om1 >>> 1) : om1;
 			long oe2 = oe + ((om1 & (1L << 24)) != 0 ? 1 : 0);
-
+			
 			rm = (int) (om2 & ((1 << 23) - 1));
 			re = (int) oe2;
 			rs = as; // !?
 			int r = ((1 & rs) << 31) | ((0xff & re) << 23) | (0x7fffff & rm);
 			return r;
 		}
-
-
-		@Override
-		protected int fneg(int a) {
-			int s = (1 & (a >> 31)) == 1 ? 0 : 1;
-			return (s << 31) | (0x7fffffff & a);
-		}
-
+		
 		private int finv_table[] = {
 				16769026,
 				16752666,
@@ -2548,7 +2541,7 @@ public class SuperScalar extends CPU {
 				4197377,
 				4195328,
 		};
-
+		
 		private int fsqrt_table[] = {
 				16773121,
 				16764941,
@@ -4600,5 +4593,5 @@ public class SuperScalar extends CPU {
 				8389632,
 		};
 	}
-
+	
 }

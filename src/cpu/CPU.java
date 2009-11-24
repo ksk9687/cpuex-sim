@@ -95,6 +95,7 @@ public abstract class CPU {
 		for (int i = 0; i < ss.length; i++) {
 			mems[i] = ss[i].binary;
 		}
+		counts = new long[ss.length];
 		init();
 	}
 	
@@ -109,6 +110,7 @@ public abstract class CPU {
 			throw new ExecuteException(String.format("IllegalPC: %08x", pc));
 		}
 		instruction++;
+		if (pc < counts.length) counts[pc]++;
 		step(mems[pc]);
 	}
 	
@@ -267,7 +269,7 @@ public abstract class CPU {
 		public void refresh() {
 			from = max(address - SIZE, 0);
 			to = min(address + SIZE, MEMORYSIZE);
-			String[] label = new String[] {"Address", TYPE[type]};
+			String[] label = {"Address", TYPE[type]};
 			String[][] data = new String[to - from][2];
 			for (int i = from; i < to; i++) {
 				data[i - from][0] = toHex(i);
@@ -315,7 +317,7 @@ public abstract class CPU {
 		}
 		
 		public void refresh() {
-			String[] label = new String[] {"Name", TYPE[type]};
+			String[] label = {"Name", TYPE[type]};
 			String[][] data = new String[REGISTERSIZE][2];
 			for (int i = 0; i < REGISTERSIZE; i++) {
 				data[i][0] = "$" + i;
@@ -334,24 +336,18 @@ public abstract class CPU {
 	//Source
 	protected String[] lines;
 	protected Statement[] ss;
+	protected long[] counts;
 	
 	protected class SourceView extends SimView {
 		
 		protected boolean trackingPC = true;
+		protected DefaultTableModel tableModel;
 		protected JTable table;
 		
 		protected SourceView() {
 			super("Source");
-			String[][] data = new String[lines.length][3];
-			for (int i = 0; i < lines.length; i++) {
-				data[i][0] = "" + (i + 1);
-				data[i][1] = "";
-				data[i][2] = lines[i];
-			}
-			for (int i = ss.length - 1; i >= 0; i--) {
-				data[ss[i].lineID][1] = "" + i;
-			}
-			table = new JTable(data, new String[] {"Line", "PC", ""});
+			tableModel = new DefaultTableModel();
+			table = new JTable(tableModel);
 			table.setFont(FONT);
 			table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
 				public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
@@ -368,15 +364,30 @@ public abstract class CPU {
 			});
 			table.setDefaultEditor(Object.class, null);
 			table.getTableHeader().setReorderingAllowed(false);
-			table.getColumnModel().getColumn(0).setMinWidth(50);
-			table.getColumnModel().getColumn(0).setMaxWidth(50);
-			table.getColumnModel().getColumn(1).setMinWidth(50);
-			table.getColumnModel().getColumn(1).setMaxWidth(50);
 			add(new JScrollPane(table), BorderLayout.CENTER);
 			pack();
 		}
 		
 		public void refresh() {
+			String[] label = {"Line", "PC", "", "Count"};
+			String[][] data = new String[lines.length][4];
+			for (int i = 0; i < lines.length; i++) {
+				data[i][0] = "" + (i + 1);
+				data[i][1] = "";
+				data[i][2] = lines[i];
+				data[i][3] = "";
+			}
+			for (int i = ss.length - 1; i >= 0; i--) {
+				data[ss[i].lineID][1] = "" + i;
+				data[ss[i].lineID][3] = String.format("%,10d", counts[i]);
+			}
+			tableModel.setDataVector(data, label);
+			table.getColumnModel().getColumn(0).setMinWidth(50);
+			table.getColumnModel().getColumn(0).setMaxWidth(50);
+			table.getColumnModel().getColumn(1).setMinWidth(50);
+			table.getColumnModel().getColumn(1).setMaxWidth(50);
+			table.getColumnModel().getColumn(3).setMinWidth(100);
+			table.getColumnModel().getColumn(3).setMaxWidth(100);
 			if (trackingPC) {
 				table.scrollRectToVisible(table.getCellRect(ss[pc].lineID, 0, true));
 			}
