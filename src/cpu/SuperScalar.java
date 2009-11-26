@@ -62,9 +62,9 @@ public class SuperScalar extends CPU {
 		} else if (op.equals("hswrite")) {
 			throw new AssembleException("Not implemented");
 		} else if (op.equals("read")) {
-			return typeI(050, 0, reg(p), 0);
+			return typeI(050, 0, reg(p), 1);
 		} else if (op.equals("write")) {
-			return typeI(051, reg(p), 0, 0);
+			return typeI(051, reg(p), reg(p), 1);
 		} else if (op.equals("ledout")) {
 			return typeI(052, reg(p), 0, 0);
 		} else if (op.equals("nop")) {
@@ -206,7 +206,7 @@ public class SuperScalar extends CPU {
 			regs[rt] = read();
 			pc++;
 		} else if (opecode == 051) { //write
-			cond = write(regs[rs]);
+			regs[rt] = write(regs[rs]);
 			pc++;
 		} else if (opecode == 052) { //ledout
 			System.err.printf("LED: %s%n", toBinary(regs[rs]).substring(24));

@@ -1,12 +1,3 @@
-#再帰版フィボナッチ
-#変数の対応
-#$zero=0
-#$one=1
-#$n=引数&戻り値
-#$t=一時変数
-#$sp=スタックポインタ
-#$ra=リンクレジスタ
-#レジスタの退避はcallerが行う
 ######################################################################
 #
 # 		↓　ここから macro.s
@@ -57,17 +48,27 @@
 .define { load [%Reg - %Imm], %Reg } { load [%1 + -%2], %3}
 .define { load [%Reg], %Reg } { load [%1 + 0], %2 }
 .define { load [%Imm], %Reg } { load [$zero + %1], %2 }
+.define { load [%Imm + %Reg], %Reg } { load [%2 + %1], %3 }
+.define { load [%Imm + %Imm], %Reg } { load [%{ %1 + %2 }], %3 }
+.define { load [%Imm - %Imm], %Reg } { load [%{ %1 - %2 }], %3 }
 .define { load [%Reg + %Reg], %Reg } { loadr %1 %2 %3 }
 .define { store %Reg, [%Reg + %Imm] } { store %2 %1 %3 }
 .define { store %Reg, [%Reg - %Imm] } { store %1, [%2 + -%3] }
-.define { store %Reg, [%Reg] } { store %1, [%1 + 0] }
+.define { store %Reg, [%Reg] } { store %1, [%2 + 0] }
 .define { store %Reg, [%Imm] } { store %1, [$zero + %2] }
+.define { store %Reg, [%Imm + %Reg] } { store %1, [%3 + %2] }
+.define { store %Reg, [%Imm + %Imm] } { store %1, [%{ %2 + %3 }] }
+.define { store %Reg, [%Imm - %Imm] } { store %1, [%{ %2 - %3 }] }
 .define { mov %Reg, %Reg } { mov %1 %2 }
+.define { neg %Reg, %Reg } { neg %1 %2 }
+.define { write %Reg, %Reg } { write %1 %2 }
 
 #スタックとヒープの初期化
+	li      0, $zero
 	li      0x1000, $hp
 	sll		$hp, 4, $hp
 	sll     $hp, 3, $sp
+	b       min_caml_start
 
 ######################################################################
 #
@@ -78,12 +79,12 @@
 .define	$n $2
 .define	$t $3
 
-main:
+min_caml_start:
 	li STACK, $sp		# $sp = STACK
 	li 1, $one			# $one = 1
 	load [N], $n		# $n = [N]
 	jal FIB				## $n = fib $n
-	write $n
+	write $n, $tmp
 	halt
 FIB:
 	cmp $n, $one		# $t = cmp $n 1

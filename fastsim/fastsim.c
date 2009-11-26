@@ -52,14 +52,55 @@ int main(int argc, char **argv) {
 	load(argv[1]);
 	for (count = 1; ; count++) {
 		unsigned int op = mems[pc];
-		if (opecode == 000) { //li
+		if (opecode == 030) { //load
+			regs[rt] = mems[regs[rs] + sImm];
+			pc++;
+		} else if (opecode == 070) { //jmp
+			if (cond & rs) {
+				pc++;
+			} else {
+				pc = imm;
+			}
+		} else if (opecode == 003) { //cmpi
+			cond = regs[rs] > sImm ? 4 : regs[rs] == sImm ? 2 : 1;
+			pc++;
+		} else if (opecode == 022) { //fmul
+			regs[rd] = ftoi(itof(regs[rs]) * itof(regs[rt]));
+			pc++;
+		} else if (opecode == 000) { //li
 			regs[rt] = imm;
 			pc++;
-		} else if (opecode == 010) { //add
-			regs[rd] = regs[rs] + regs[rt];
+		} else if (opecode == 025) { //fcmp
+			cond = itof(regs[rs]) > itof(regs[rt]) ? 4 : itof(regs[rs]) == itof(regs[rt]) ? 2 : 1;
+			pc++;
+		} else if (opecode == 020) { //fadd
+			regs[rd] = ftoi(itof(regs[rs]) + itof(regs[rt]));
+			pc++;
+		} else if (opecode == 021) { //fsub
+			regs[rd] = ftoi(itof(regs[rs]) - itof(regs[rt]));
+			pc++;
+		} else if (opecode == 032) { //store
+			mems[regs[rs] + sImm] = regs[rt];
+			pc++;
+		} else if (opecode == 031) { //loadr
+			regs[rd] = mems[regs[rs] + regs[rt]];
 			pc++;
 		} else if (opecode == 001) { //addi
 			regs[rt] = regs[rs] + sImm;
+			pc++;
+		} else if (opecode == 047) { //mov
+			regs[rt] = regs[rs];
+			pc++;
+		} else if (opecode == 026) { //fabs
+			regs[rd] = ftoi(fabsf(itof(regs[rs])));
+			pc++;
+		} else if (opecode == 071) { //jal
+			regs[63] = pc + 1;
+			pc = imm;
+		} else if (opecode == 072) { //jr
+			pc = regs[rs];
+		} else if (opecode == 010) { //add
+			regs[rd] = regs[rs] + regs[rt];
 			pc++;
 		} else if (opecode == 011) { //sub
 			regs[rd] = regs[rs] - regs[rt];
@@ -70,41 +111,14 @@ int main(int argc, char **argv) {
 		} else if (opecode == 012) { //cmp
 			cond = regs[rs] > regs[rt] ? 4 : regs[rs] == regs[rt] ? 2 : 1;
 			pc++;
-		} else if (opecode == 003) { //cmpi
-			cond = regs[rs] > sImm ? 4 : regs[rs] == sImm ? 2 : 1;
-			pc++;
-		} else if (opecode == 020) { //fadd
-			regs[rd] = ftoi(itof(regs[rs]) + itof(regs[rt]));
-			pc++;
-		} else if (opecode == 021) { //fsub
-			regs[rd] = ftoi(itof(regs[rs]) - itof(regs[rt]));
-			pc++;
-		} else if (opecode == 022) { //fmul
-			regs[rd] = ftoi(itof(regs[rs]) * itof(regs[rt]));
-			pc++;
 		} else if (opecode == 023) { //finv
 			regs[rd] = ftoi(1.0f / itof(regs[rs]));
 			pc++;
 		} else if (opecode == 024) { //fsqrt
 			regs[rd] = ftoi(sqrtf(itof(regs[rs])));
 			pc++;
-		} else if (opecode == 025) { //fcmp
-			cond = itof(regs[rs]) > itof(regs[rt]) ? 4 : itof(regs[rs]) == itof(regs[rt]) ? 2 : 1;
-			pc++;
-		} else if (opecode == 026) { //fabs
-			regs[rd] = ftoi(fabsf(itof(regs[rs])));
-			pc++;
 		} else if (opecode == 027) { //fneg
 			regs[rd] = ftoi(-(itof(regs[rs])));
-			pc++;
-		} else if (opecode == 030) { //load
-			regs[rt] = mems[regs[rs] + sImm];
-			pc++;
-		} else if (opecode == 031) { //loadr
-			regs[rd] = mems[regs[rs] + regs[rt]];
-			pc++;
-		} else if (opecode == 032) { //store
-			mems[regs[rs] + sImm] = regs[rt];
 			pc++;
 		} else if (opecode == 040) { //hsread
 			//Not implemented
@@ -117,7 +131,7 @@ int main(int argc, char **argv) {
 			pc++;
 		} else if (opecode == 051) { //write
 			putchar(regs[rs]);
-			cond = 0;
+			regs[rt] = 0;
 #ifdef WRITE
 			fprintf(stderr, "\rwrite %d bytes", ++writeBytes);
 #endif
@@ -129,20 +143,6 @@ int main(int argc, char **argv) {
 		} else if (opecode == 061) { //halt
 			fprintf(stderr, "\n%lld instr.\n", count);
 			return 0;
-		} else if (opecode == 047) { //mov
-			regs[rt] = regs[rs];
-			pc++;
-		} else if (opecode == 070) { //jmp
-			if (cond & rs) {
-				pc++;
-			} else {
-				pc = imm;
-			}
-		} else if (opecode == 071) { //jal
-			regs[63] = pc + 1;
-			pc = imm;
-		} else if (opecode == 072) { //jr
-			pc = regs[rs];
 		} else {
 			fprintf(stderr, "Error!!!\n");
 			return 1;

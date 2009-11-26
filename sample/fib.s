@@ -1,15 +1,3 @@
-#ループ版フィボナッチ
-#変数の対応
-#$zero=0
-#$n=n(ループカウンタ)
-#$a=fib n
-#$b=fib (n+1)
-#$t=一時変数
-.define $n $1
-.define $a $2
-.define $b $3
-.define $t $4
-
 ######################################################################
 #
 # 		↓　ここから macro.s
@@ -60,25 +48,38 @@
 .define { load [%Reg - %Imm], %Reg } { load [%1 + -%2], %3}
 .define { load [%Reg], %Reg } { load [%1 + 0], %2 }
 .define { load [%Imm], %Reg } { load [$zero + %1], %2 }
+.define { load [%Imm + %Reg], %Reg } { load [%2 + %1], %3 }
+.define { load [%Imm + %Imm], %Reg } { load [%{ %1 + %2 }], %3 }
+.define { load [%Imm - %Imm], %Reg } { load [%{ %1 - %2 }], %3 }
 .define { load [%Reg + %Reg], %Reg } { loadr %1 %2 %3 }
 .define { store %Reg, [%Reg + %Imm] } { store %2 %1 %3 }
 .define { store %Reg, [%Reg - %Imm] } { store %1, [%2 + -%3] }
-.define { store %Reg, [%Reg] } { store %1, [%1 + 0] }
+.define { store %Reg, [%Reg] } { store %1, [%2 + 0] }
 .define { store %Reg, [%Imm] } { store %1, [$zero + %2] }
+.define { store %Reg, [%Imm + %Reg] } { store %1, [%3 + %2] }
+.define { store %Reg, [%Imm + %Imm] } { store %1, [%{ %2 + %3 }] }
+.define { store %Reg, [%Imm - %Imm] } { store %1, [%{ %2 - %3 }] }
 .define { mov %Reg, %Reg } { mov %1 %2 }
+.define { neg %Reg, %Reg } { neg %1 %2 }
+.define { write %Reg, %Reg } { write %1 %2 }
 
 #スタックとヒープの初期化
+	li      0, $zero
 	li      0x1000, $hp
 	sll		$hp, 4, $hp
 	sll     $hp, 3, $sp
+	b       min_caml_start
 
 ######################################################################
 #
 # 		↑　ここまで macro.s
 #
 ######################################################################
-
-
+.define $n $1
+.define $a $2
+.define $b $3
+.define $t $4
+min_caml_start:
 	load [N], $n		# $n = [N]
 	li 1, $b			# $b = 1
 LOOP:
@@ -90,6 +91,6 @@ LOOP:
 	add $n, -1, $n		# $n = $n - 1
 	b LOOP
 END:
-	write $a
+	write $a, $tmp
 	halt
 N:	.int 10
