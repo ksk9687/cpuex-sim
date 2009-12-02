@@ -112,13 +112,19 @@ public class Main {
 		CPU cpu = CPU.loadCPU(cpuName);
 		String[] lines = readLines(openInputFile(fileName), encoding);
 		System.err.println("Assembling...");
-		Statement[] ss = Assembler.assemble(cpu, lines);
+		Program prog = null;
+		try {
+			prog = Assembler.assemble(cpu, lines);
+		} catch (AssembleException e) {
+			System.err.printf("エラー: %s%n", e.getMessage());
+			System.exit(1);
+		}
 		System.err.println("Finished!");
 		if (asmOut != null) {
 			try {
 				DataOutputStream out = new DataOutputStream(openOutputFile(asmOut));
-				out.writeInt(ss.length);
-				for (Statement s : ss) {
+				out.writeInt(prog.ss.length);
+				for (Statement s : prog.ss) {
 					out.writeInt(s.binary);
 				}
 				out.close();
@@ -128,15 +134,15 @@ public class Main {
 		}
 		if (vhdlOut != null) {
 			PrintWriter out = new PrintWriter(openOutputFile(vhdlOut));
-			for (Statement s : ss) {
+			for (Statement s : prog.ss) {
 				out.printf("\"%s\",%n", toBinary(s.binary));
 			}
 			out.close();
 		}
 		if (xyx) {
 			Random r = new Random();
-			int num = ss.length * 36;
-			for (Statement s : ss) {
+			int num = prog.ss.length * 36;
+			for (Statement s : prog.ss) {
 				String str = toBinary(s.binary);
 				for (int j = 0; j < 4; j++) {
 					System.out.print("\"0\"&\"");
@@ -155,7 +161,7 @@ public class Main {
 			OutputStream out = null;
 			if (simIn != null) in = openInputFile(simIn);
 			if (simOut != null) out = openOutputFile(simOut);
-			Simulator sim = new Simulator(cpu, lines, ss, in, out);
+			Simulator sim = new Simulator(cpu, prog, in, out);
 			if (simType == 1) {
 				sim.runGUI();
 			} else {

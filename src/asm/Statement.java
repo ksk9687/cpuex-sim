@@ -1,6 +1,7 @@
 package asm;
 
 import static java.util.Arrays.*;
+import static util.Utils.*;
 import java.util.*;
 import java.util.regex.*;
 
@@ -15,7 +16,6 @@ public class Statement {
 	public String str;
 	public String[] tokens;
 	public int binary;
-	public boolean isOp;
 	
 	public Statement(int lineID, String original) {
 		this.lineID = lineID;
@@ -51,7 +51,7 @@ public class Statement {
 	}
 	
 	public String createMessage(String detail) {
-		return String.format("%d行目: %s%n%s", lineID + 1, detail, original);
+		return String.format("%d行目: %s%n%s%n%s", lineID + 1, detail, original, concat(tokens, " "));
 	}
 	
 	public String toString() {

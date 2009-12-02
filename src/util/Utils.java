@@ -1,6 +1,7 @@
 package util;
 
 import static java.util.Arrays.*;
+import java.util.*;
 
 public class Utils {
 	
@@ -63,7 +64,8 @@ public class Utils {
 		return i;
 	}
 	
-	public static int[] toints(Integer[] Is) {
+	public static int[] toints(List<Integer> list) {
+		Integer[] Is = list.toArray(new Integer[0]);
 		int n = Is.length;
 		int[] is = new int[n];
 		for (int i = 0; i < n; i++) is[i] = Is[i];
@@ -73,6 +75,15 @@ public class Utils {
 	public static void failWith(String s) {
 		System.err.printf("エラー: %s%n", s);
 		System.exit(1);
+	}
+	
+	public static String concat(String[] ss, String sep) {
+		if (ss.length == 0) return "";
+		StringBuilder sb = new StringBuilder(ss[0]);
+		for (int i = 1; i < ss.length; i++) {
+			sb.append(sep).append(ss[i]);
+		}
+		return sb.toString();
 	}
 	
 	public static void debug(Object...os) {

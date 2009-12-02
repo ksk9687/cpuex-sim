@@ -14,9 +14,9 @@ public class Simulator {
 	private JFrame frame;
 	private JDesktopPane desktop;
 	
-	public Simulator(CPU cpu, String[] lines, Statement[] ss, InputStream in, OutputStream out) {
+	public Simulator(CPU cpu, Program prog, InputStream in, OutputStream out) {
 		this.cpu = cpu;
-		cpu.init(lines, ss, in, out);
+		cpu.init(prog, in, out);
 	}
 	
 	public void runGUI() {

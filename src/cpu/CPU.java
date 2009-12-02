@@ -84,18 +84,17 @@ public abstract class CPU {
 	protected long instruction;
 	protected boolean halted;
 	
-	public final void init(String[] lines, Statement[] ss, InputStream in, OutputStream out) {
-		this.lines = lines;
-		this.ss = ss;
+	public final void init(Program prog, InputStream in, OutputStream out) {
+		this.prog = prog;
 		this.in = in;
 		this.out = out;
 		pc = 0;
 		regs = new int[REGISTERSIZE];
 		mems = new int[MEMORYSIZE];
-		for (int i = 0; i < ss.length; i++) {
-			mems[i] = ss[i].binary;
+		for (int i = 0; i < prog.ss.length; i++) {
+			mems[i] = prog.ss[i].binary;
 		}
-		counts = new long[ss.length];
+		counts = new long[prog.ss.length + 1];
 		init();
 	}
 	
@@ -106,12 +105,12 @@ public abstract class CPU {
 		if (halted) {
 			throw new ExecuteException("Finished!");
 		}
-		if (pc < 0 || pc >= MEMORYSIZE) {
+		if (pc < 0 || pc >= prog.ss.length) {
 			throw new ExecuteException(String.format("IllegalPC: %08x", pc));
 		}
-		instruction++;
-		if (pc < counts.length) counts[pc]++;
+		counts[pc]++;
 		step(mems[pc]);
+		instruction++;
 	}
 	
 	protected void step(int ope) {
@@ -120,7 +119,7 @@ public abstract class CPU {
 	
 	//View
 	public String[] getViews() {
-		return new String[] {"Source", "Status", "Register", "Memory"};
+		return new String[] {"Source", "Status", "Register", "Memory", "Stat"};
 	}
 	
 	public SimView createView(String name) {
@@ -132,6 +131,8 @@ public abstract class CPU {
 			return new RegisterView();
 		} else if (name.equals("Memory")) {
 			return new MemoryView();
+		} else if (name.equals("Stat")) {
+			return new StatView();
 		}
 		failWith(String.format("%s: 存在しないView名", name));
 		return null;
@@ -334,8 +335,7 @@ public abstract class CPU {
 	}
 	
 	//Source
-	protected String[] lines;
-	protected Statement[] ss;
+	protected Program prog;
 	protected long[] counts;
 	
 	protected class SourceView extends SimView {
@@ -352,7 +352,7 @@ public abstract class CPU {
 			table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
 				public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
 					super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-					if (ss[pc].lineID == row) {
+					if (prog.ss[pc].lineID == row) {
 						setBackground(table.getSelectionBackground());
 					} else if (isSelected) {
 						setBackground(table.getSelectionBackground());
@@ -370,16 +370,16 @@ public abstract class CPU {
 		
 		public void refresh() {
 			String[] label = {"Line", "PC", "", "Count"};
-			String[][] data = new String[lines.length][4];
-			for (int i = 0; i < lines.length; i++) {
+			String[][] data = new String[prog.lines.length][4];
+			for (int i = 0; i < prog.lines.length; i++) {
 				data[i][0] = "" + (i + 1);
 				data[i][1] = "";
-				data[i][2] = lines[i];
+				data[i][2] = prog.lines[i];
 				data[i][3] = "";
 			}
-			for (int i = ss.length - 1; i >= 0; i--) {
-				data[ss[i].lineID][1] = "" + i;
-				data[ss[i].lineID][3] = String.format("%,10d", counts[i]);
+			for (int i = prog.ss.length - 1; i >= 0; i--) {
+				data[prog.ss[i].lineID][1] = "" + i;
+				data[prog.ss[i].lineID][3] = String.format("%,10d", counts[i]);
 			}
 			tableModel.setDataVector(data, label);
 			table.getColumnModel().getColumn(0).setMinWidth(50);
@@ -389,9 +389,62 @@ public abstract class CPU {
 			table.getColumnModel().getColumn(3).setMinWidth(100);
 			table.getColumnModel().getColumn(3).setMaxWidth(100);
 			if (trackingPC) {
-				table.scrollRectToVisible(table.getCellRect(ss[pc].lineID, 0, true));
+				table.scrollRectToVisible(table.getCellRect(prog.ss[pc].lineID, 0, true));
 			}
 			repaint();
+		}
+		
+	}
+	
+	//Stat
+	protected class StatView extends SimView {
+		
+		protected DefaultTableModel tableModel;
+		protected JTable table;
+		protected String[] label = {"Name", "Count", "Total"};
+		protected String[][] data = new String[prog.names.length][3];
+		
+		protected StatView() {
+			super("Stat");
+			tableModel = new DefaultTableModel();
+			table = new JTable(tableModel);
+			table.setFont(FONT);
+			table.setDefaultEditor(Object.class, null);
+			table.getTableHeader().setReorderingAllowed(false);
+			add(new JButton(new AbstractAction("Output") {
+				public void actionPerformed(ActionEvent e) {
+					System.err.println("* ブロック実行数");
+					System.err.printf("| %s | %s | %s |%n", label[0], label[1], label[2]);
+					for (int i = 0; i < prog.names.length; i++) {
+						System.err.printf("| %s | %s | %s |%n", data[i][0].trim(), data[i][1].trim(), data[i][2].trim());
+					}
+				}
+			}), BorderLayout.SOUTH);
+			add(new JScrollPane(table), BorderLayout.CENTER);
+			setPreferredSize(new Dimension(500, 400));
+			pack();
+		}
+		
+		public void refresh() {
+			long[] sum = new long[prog.ss.length + 1];
+			long[] count = new long[prog.names.length];
+			long[] total = new long[prog.names.length];
+			for (int i = 0; i < prog.ss.length; i++) {
+				sum[i + 1] = sum[i] + counts[i];
+			}
+			for (int i = 0; i < prog.ids.length; i++) {
+				count[prog.ids[i]] += counts[prog.begin[i]];
+				total[prog.ids[i]] += sum[prog.end[i]] - sum[prog.begin[i]];
+			}
+			for (int i = 0; i < prog.names.length; i++) {
+				data[i][0] = prog.names[i];
+				data[i][1] = String.format("%,14d", count[i]);
+				data[i][2] = String.format("%,14d", total[i]);
+			}
+			tableModel.setDataVector(data, label);
+			table.getColumnModel().getColumn(0).setMinWidth(200);
+			table.getColumnModel().getColumn(1).setMinWidth(120);
+			table.getColumnModel().getColumn(2).setMinWidth(120);
 		}
 		
 	}

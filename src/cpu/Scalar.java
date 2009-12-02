@@ -245,14 +245,6 @@ public class Scalar extends CPU {
 			System.err.printf("| %s | %,d (%.3f) |%n", NAME[i], countOpe[i], 100.0 * countOpe[i] / (instruction));
 		}
 		System.err.println();
-		System.err.println("* 関数呼び出し数(jalのみ)");
-		for (int i = 0; i < MEMORYSIZE; i++) if (countCall[i] > 0 && ss[i].labels.length > 0) {
-			String name = ss[i].labels[0];
-			if (name.startsWith("min_caml_")) name = name.substring("min_caml_".length());
-			if (name.indexOf('.') >= 0) name = name.substring(0, name.indexOf('.'));
-			System.err.printf("| %s | %,d |%n", name, countCall[i]);
-		}
-		System.err.println();
 		System.err.println("* ICache");
 		System.err.printf("| Total | %,d |%n", ihit + imiss);
 		System.err.printf("| Hit | %,d (%.3f) |%n", ihit, 100.0 * ihit / (ihit + imiss));

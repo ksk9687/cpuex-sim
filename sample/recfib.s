@@ -86,6 +86,7 @@ min_caml_start:
 	jal FIB				## $n = fib $n
 	write $n, $tmp
 	halt
+.begin fib
 FIB:
 	cmp $n, $one		# $t = cmp $n 1
 	ble RET
@@ -104,6 +105,7 @@ FIB:
 	add $sp, -3, $sp	# $sp = $sp + 3
 RET:
 	jr $ra
+.end fib
 N:	.int 35
 STACK:
 	.int 0				#スタックの位置

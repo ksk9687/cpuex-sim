@@ -5,7 +5,6 @@ import static java.util.Collections.*;
 import static util.Utils.*;
 import cpu.*;
 import java.util.*;
-import util.*;
 
 public class Assembler {
 	
@@ -64,12 +63,35 @@ public class Assembler {
 		}
 	}
 	
-	//マクロを処理する
-	private static Pair<Define[], Statement[]> macro(Statement[] ss) {
+	//Define
+	private static class Define {
+		public int from;
+		public String[] ss, st;
+		
+		public Define(int from, String[] ss, String[] st) {
+			this.from = from;
+			this.ss = ss;
+			this.st = st;
+		}
+		
+		public String toString() {
+			return String.format("{%d, %s, %s}", from, Arrays.toString(ss), Arrays.toString(st));
+		}
+	}
+	
+	//linesをcpu向けにアセンブルする
+	public static Program assemble(CPU cpu, String[] lines) {
 		Map<String, Integer> labels = new HashMap<String, Integer>();
 		Map<String, String[]> map = new HashMap<String, String[]>();
 		List<Statement> list = new ArrayList<Statement>();
-		List<Define> defs = new ArrayList<Define>();
+		LinkedList<Define> defs = new LinkedList<Define>();
+		Map<String, Integer> namemap = new HashMap<String, Integer>();
+		List<String> names = new ArrayList<String>();
+		List<Integer> last = new ArrayList<Integer>();
+		List<Integer> ids = new ArrayList<Integer>();
+		List<Integer> begin = new ArrayList<Integer>();
+		List<Integer> end = new ArrayList<Integer>();
+		Statement[] ss = lex(lines);
 		for (Statement s : ss) {
 			for (String label : s.labels) {
 				if (labels.containsKey(label)) {
@@ -88,7 +110,7 @@ public class Assembler {
 					if (!p.crt().equals("{")) {
 						map.put(p.next(), p.rest());
 					} else {
-						defs.add(new Define(list.size(), contents(p), contents(p)));
+						defs.addFirst(new Define(list.size(), contents(p), contents(p)));
 						p.end();
 					}
 				} else if (t.equals(".skip")) {
@@ -98,59 +120,81 @@ public class Assembler {
 						throw new ParseException();
 					}
 					list.addAll(nCopies(d, s));
+				} else if (t.equals(".begin")) {
+					String id = p.next();
+					p.end();
+					if (!namemap.containsKey(id)) {
+						namemap.put(id, names.size());
+						names.add(id);
+						last.add(-1);
+					}
+					int i = namemap.get(id);
+					if (last.get(i) >= 0) {
+						throw new AssembleException(s.createMessage("beginとendの対応が取れていません"));
+					}
+					last.set(i, list.size());
+				} else if (t.equals(".end")) {
+					String id = p.next();
+					p.end();
+					if (!namemap.containsKey(id)) {
+						namemap.put(id, names.size());
+						names.add(id);
+						last.add(-1);
+					}
+					int i = namemap.get(id);
+					if (last.get(i) < 0) {
+						throw new AssembleException(s.createMessage("beginとendの対応が取れていません"));
+					}
+					ids.add(i);
+					begin.add(last.get(i));
+					end.add(list.size());
+					last.set(i, -1);
+				} else if (t.equals(".count")) {
+					String id = p.next();
+					p.end();
+					if (!namemap.containsKey(id)) {
+						namemap.put(id, names.size());
+						names.add(id);
+						last.add(-1);
+					}
+					int i = namemap.get(id);
+					ids.add(i);
+					begin.add(list.size());
+					end.add(list.size());
 				} else {
-					s.isOp = true;
 					list.add(s);
 				}
 			} catch (ParseException e) {
 				throw new AssembleException(s.createMessage("マクロ引数が不正です"));
 			}
 		}
+		for (int i : last) if (i >= 0) throw new AssembleException("beginとendの対応が取れていません");
+		ss = list.toArray(new Statement[0]);
+		for (Define def : defs) {
+			replace(def.ss, labels);
+			replace(def.st, labels);
+		}
 		int pc = 0;
-		for (Statement s : list) {
+		for (Statement s : ss) {
 			replace(s.tokens, labels);
 			replace(s.tokens, "%pc", "" + pc);
 			try {
 				Parser p = new Parser(s.tokens);
 				String t = p.next();
 				if (t.equals(".int")) {
-					s.isOp = false;
 					s.binary = p.nextImm();
 					p.end();
 				} else if (t.equals(".float")) {
-					s.isOp = false;
 					try {
 						s.binary = ftoi(Float.parseFloat(s.str.substring(6).trim()));
 					} catch (NumberFormatException e) {
 						throw new ParseException();
 					}
-				}
-			} catch (ParseException e) {
-				throw new AssembleException(s.createMessage("マクロ引数が不正です"));
-			}
-			pc++;
-		}
-		for (Define def : defs) {
-			replace(def.ss, labels);
-			replace(def.st, labels);
-		}
-		return Pair.make(defs.toArray(new Define[0]), list.toArray(new Statement[0]));
-	}
-	
-	//linesをcpu向けにアセンブルし、命令列を返す
-	public static Statement[] assemble(CPU cpu, String[] lines) {
-		try {
-			Statement[] ss = lex(lines);
-			Pair<Define[], Statement[]> pair = macro(ss);
-			Define[] ds = pair.first;
-			ss = pair.second;
-			int pc = 0;
-			for (Statement s : ss) {
-				if (s.isOp) {
-					Parser p = new Parser(s.tokens);
-					for (int i = ds.length - 1; i >= 0; i--) if (ds[i].from <= pc) {
+				} else if (!t.equals(".skip")) {
+					p = new Parser(s.tokens);
+					for (Define def : defs) if (def.from <= pc) {
 						try {
-							s.tokens = p.match(ds[i].ss, ds[i].st);
+							s.tokens = p.match(def.ss, def.st);
 							replace(s.tokens, "%pc", "" + pc);
 							p = new Parser(s.tokens);
 						} catch (ParseException e) {
@@ -158,19 +202,17 @@ public class Assembler {
 						}
 					}
 					try {
-						s.binary = cpu.getBinary(p);
+						s.binary = cpu.getBinary(new Parser(s.tokens));
 					} catch (AssembleException e) {
 						throw new AssembleException(s.createMessage(e.getMessage()));
 					}
 				}
-				pc++;
+			} catch (ParseException e) {
+				throw new AssembleException(s.createMessage("マクロ引数が不正です"));
 			}
-			return ss;
-		} catch (AssembleException e) {
-			System.err.printf("エラー: %s%n", e.getMessage());
-			System.exit(1);
-			throw e;
+			pc++;
 		}
+		return new Program(lines, ss, names.toArray(new String[0]), toints(ids), toints(begin), toints(end));
 	}
 	
 }
