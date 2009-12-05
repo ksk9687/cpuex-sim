@@ -48,15 +48,15 @@ public class SuperScalar extends CPU {
 		} else if (op.equals("fcmp")) {
 			return typeI(025, reg(p), reg(p), 0);
 		} else if (op.equals("fabs")) {
-			return typeR(026, reg(p), 0, reg(p));
+			return typeR(006, reg(p), 0, reg(p));
 		} else if (op.equals("fneg")) {
-			return typeR(027, reg(p), 0, reg(p));
+			return typeR(007, reg(p), 0, reg(p));
 		} else if (op.equals("load")) {
 			return typeI(030, reg(p), reg(p), imm(p, 14, true));
 		} else if (op.equals("loadr")) {
-			return typeR(031, reg(p), reg(p), reg(p));
+			return typeR(032, reg(p), reg(p), reg(p));
 		} else if (op.equals("store")) {
-			return typeI(032, reg(p), reg(p), imm(p, 14, true));
+			return typeI(031, reg(p), reg(p), imm(p, 14, true));
 		} else if (op.equals("hsread")) {
 			throw new AssembleException("Not implemented");
 		} else if (op.equals("hswrite")) {
@@ -72,7 +72,7 @@ public class SuperScalar extends CPU {
 		} else if (op.equals("halt")) {
 			return typeI(061, 0, 0, 0);
 		} else if (op.equals("mov")) {
-			return typeI(047, reg(p), reg(p), 0);
+			return typeI(005, reg(p), reg(p), 0);
 		} else if (op.equals("jmp")) {
 			return typeI(070, imm(p, 3, false), 0, imm(p, 14, false));
 		} else if (op.equals("jal")) {
@@ -183,19 +183,19 @@ public class SuperScalar extends CPU {
 		} else if (opecode == 025) { //fcmp
 			cond = fcmp(regs[rs], regs[rt]);
 			pc++;
-		} else if (opecode == 026) { //fabs
+		} else if (opecode == 006) { //fabs
 			regs[rd] = fabs(regs[rs]);
 			pc++;
-		} else if (opecode == 027) { //fneg
+		} else if (opecode == 007) { //fneg
 			regs[rd] = fneg(regs[rs]);
 			pc++;
 		} else if (opecode == 030) { //load
 			regs[rt] = load(regs[rs] + signExt(imm, 14));
 			pc++;
-		} else if (opecode == 031) { //loadr
+		} else if (opecode == 032) { //loadr
 			regs[rd] = load(regs[rs] + regs[rt]);
 			pc++;
-		} else if (opecode == 032) { //store
+		} else if (opecode == 031) { //store
 			store(regs[rs] + signExt(imm, 14), regs[rt]);
 			pc++;
 		} else if (opecode == 040) { //hsread
@@ -216,7 +216,7 @@ public class SuperScalar extends CPU {
 		} else if (opecode == 061) { //halt
 			printStat();
 			halted = true;
-		} else if (opecode == 047) { //mov
+		} else if (opecode == 005) { //mov
 			regs[rt] = regs[rs];
 			pc++;
 		} else if (opecode == 070) { //jmp
@@ -252,11 +252,11 @@ public class SuperScalar extends CPU {
 		NAME[023] = "finv";
 		NAME[024] = "fsqrt";
 		NAME[025] = "fcmp";
-		NAME[026] = "fabs";
-		NAME[027] = "fneg";
+		NAME[006] = "fabs";
+		NAME[007] = "fneg";
 		NAME[030] = "load";
-		NAME[031] = "loadr";
-		NAME[032] = "store";
+		NAME[032] = "loadr";
+		NAME[031] = "store";
 		NAME[040] = "hsread";
 		NAME[041] = "hswrite";
 		NAME[050] = "read";
@@ -264,7 +264,7 @@ public class SuperScalar extends CPU {
 		NAME[052] = "ledout";
 		NAME[060] = "nop";
 		NAME[061] = "halt";
-		NAME[047] = "mov";
+		NAME[005] = "mov";
 		NAME[070] = "jmp";
 		NAME[071] = "jal";
 		NAME[072] = "jr";

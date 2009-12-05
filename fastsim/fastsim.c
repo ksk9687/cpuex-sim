@@ -79,19 +79,19 @@ int main(int argc, char **argv) {
 		} else if (opecode == 021) { //fsub
 			regs[rd] = ftoi(itof(regs[rs]) - itof(regs[rt]));
 			pc++;
-		} else if (opecode == 032) { //store
+		} else if (opecode == 031) { //store
 			mems[regs[rs] + sImm] = regs[rt];
 			pc++;
-		} else if (opecode == 031) { //loadr
+		} else if (opecode == 032) { //loadr
 			regs[rd] = mems[regs[rs] + regs[rt]];
 			pc++;
 		} else if (opecode == 001) { //addi
 			regs[rt] = regs[rs] + sImm;
 			pc++;
-		} else if (opecode == 047) { //mov
+		} else if (opecode == 005) { //mov
 			regs[rt] = regs[rs];
 			pc++;
-		} else if (opecode == 026) { //fabs
+		} else if (opecode == 006) { //fabs
 			regs[rd] = ftoi(fabsf(itof(regs[rs])));
 			pc++;
 		} else if (opecode == 071) { //jal
@@ -117,7 +117,7 @@ int main(int argc, char **argv) {
 		} else if (opecode == 024) { //fsqrt
 			regs[rd] = ftoi(sqrtf(itof(regs[rs])));
 			pc++;
-		} else if (opecode == 027) { //fneg
+		} else if (opecode == 007) { //fneg
 			regs[rd] = ftoi(-(itof(regs[rs])));
 			pc++;
 		} else if (opecode == 040) { //hsread
