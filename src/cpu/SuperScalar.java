@@ -54,9 +54,9 @@ public class SuperScalar extends CPU {
 		} else if (op.equals("load")) {
 			return typeI(030, reg(p), reg(p), imm(p, 14, true));
 		} else if (op.equals("loadr")) {
-			return typeR(032, reg(p), reg(p), reg(p));
+			return typeR(031, reg(p), reg(p), reg(p));
 		} else if (op.equals("store")) {
-			return typeI(031, reg(p), reg(p), imm(p, 14, true));
+			return typeI(032, reg(p), reg(p), imm(p, 14, true));
 		} else if (op.equals("hsread")) {
 			throw new AssembleException("Not implemented");
 		} else if (op.equals("hswrite")) {
@@ -192,10 +192,10 @@ public class SuperScalar extends CPU {
 		} else if (opecode == 030) { //load
 			regs[rt] = load(regs[rs] + signExt(imm, 14));
 			pc++;
-		} else if (opecode == 032) { //loadr
+		} else if (opecode == 031) { //loadr
 			regs[rd] = load(regs[rs] + regs[rt]);
 			pc++;
-		} else if (opecode == 031) { //store
+		} else if (opecode == 032) { //store
 			store(regs[rs] + signExt(imm, 14), regs[rt]);
 			pc++;
 		} else if (opecode == 040) { //hsread
@@ -255,8 +255,8 @@ public class SuperScalar extends CPU {
 		NAME[006] = "fabs";
 		NAME[007] = "fneg";
 		NAME[030] = "load";
-		NAME[032] = "loadr";
-		NAME[031] = "store";
+		NAME[031] = "loadr";
+		NAME[032] = "store";
 		NAME[040] = "hsread";
 		NAME[041] = "hswrite";
 		NAME[050] = "read";

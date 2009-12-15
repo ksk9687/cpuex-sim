@@ -79,10 +79,10 @@ int main(int argc, char **argv) {
 		} else if (opecode == 021) { //fsub
 			regs[rd] = ftoi(itof(regs[rs]) - itof(regs[rt]));
 			pc++;
-		} else if (opecode == 031) { //store
+		} else if (opecode == 032) { //store
 			mems[regs[rs] + sImm] = regs[rt];
 			pc++;
-		} else if (opecode == 032) { //loadr
+		} else if (opecode == 031) { //loadr
 			regs[rd] = mems[regs[rs] + regs[rt]];
 			pc++;
 		} else if (opecode == 001) { //addi
