@@ -21,6 +21,7 @@ inline float itof(int i) { FI fi; fi.i = i; return fi.f; }
 
 int regs[64];
 int mems[1 << 20];
+int calls[1000];
 
 int readInt(FILE *f) {
 	int i, res = 0;
@@ -42,7 +43,7 @@ void load(char *name) {
 
 int main(int argc, char **argv) {
 	int pc = 0;
-    int cond = 0;
+    int cond = 0, cp = 0;
 	long long count;
 	int writeBytes = 0;
 	if (argc != 2) {
@@ -94,11 +95,11 @@ int main(int argc, char **argv) {
 		} else if (opecode == 006) { //fabs
 			regs[rd] = ftoi(fabsf(itof(regs[rs])));
 			pc++;
-		} else if (opecode == 071) { //jal
-			regs[63] = pc + 1;
+		} else if (opecode == 071) { //call
+			calls[cp++] = pc + 1;
 			pc = imm;
-		} else if (opecode == 072) { //jr
-			pc = regs[rs];
+		} else if (opecode == 072) { //ret
+			pc = calls[--cp];
 		} else if (opecode == 010) { //add
 			regs[rd] = regs[rs] + regs[rt];
 			pc++;
@@ -141,7 +142,7 @@ int main(int argc, char **argv) {
 		} else if (opecode == 060) { //nop
 			pc++;
 		} else if (opecode == 061) { //halt
-			fprintf(stderr, "\n%lld instr.\n", count);
+			fprintf(stderr, "\n%lld instr.\n", count - 1);
 			return 0;
 		} else {
 			fprintf(stderr, "Error!!!\n");

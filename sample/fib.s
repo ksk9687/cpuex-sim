@@ -6,15 +6,13 @@
 
 #レジスタ名置き換え
 .define $zero $0
-.define $ra $63
-.define $sp $62
-.define $hp $61
-.define $tmp $60
+.define $sp $63
+.define $hp $62
+.define $tmp $61
 .define $0 orz
 .define $63 orz
 .define $62 orz
 .define $61 orz
-.define $60 orz
 
 #疑似命令
 .define { neg %Reg %Reg } { sub $zero %1 %2 }
@@ -25,7 +23,6 @@
 .define { ble %Imm } { jmp 4 %1 }
 .define { bg %Imm } { jmp 3 %1 }
 .define { bge %Imm } { jmp 1 %1 }
-.define { ret } { jr $ra }
 
 # 入力,出力の順にコンマで区切る形式
 .define { li %Imm, %Reg } { li %2 %1 }
@@ -68,7 +65,8 @@
 	li      0x1000, $hp
 	sll		$hp, 4, $hp
 	sll     $hp, 3, $sp
-	b       min_caml_start
+	call     min_caml_main
+	halt
 
 ######################################################################
 #
@@ -79,7 +77,7 @@
 .define $a $2
 .define $b $3
 .define $t $4
-min_caml_start:
+min_caml_main:
 	load [N], $n		# $n = [N]
 	li 1, $b			# $b = 1
 LOOP:

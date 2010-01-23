@@ -6,15 +6,13 @@
 
 #レジスタ名置き換え
 .define $zero $0
-.define $ra $63
-.define $sp $62
-.define $hp $61
-.define $tmp $60
+.define $sp $63
+.define $hp $62
+.define $tmp $61
 .define $0 orz
 .define $63 orz
 .define $62 orz
 .define $61 orz
-.define $60 orz
 
 #疑似命令
 .define { neg %Reg %Reg } { sub $zero %1 %2 }
@@ -25,7 +23,6 @@
 .define { ble %Imm } { jmp 4 %1 }
 .define { bg %Imm } { jmp 3 %1 }
 .define { bge %Imm } { jmp 1 %1 }
-.define { ret } { jr $ra }
 
 # 入力,出力の順にコンマで区切る形式
 .define { li %Imm, %Reg } { li %2 %1 }
@@ -68,7 +65,8 @@
 	li      0x1000, $hp
 	sll		$hp, 4, $hp
 	sll     $hp, 3, $sp
-	b       min_caml_start
+	call     min_caml_main
+	halt
 
 ######################################################################
 #
@@ -79,32 +77,30 @@
 .define	$n $2
 .define	$t $3
 
-min_caml_start:
+min_caml_main:
 	li STACK, $sp		# $sp = STACK
 	li 1, $one			# $one = 1
 	load [N], $n		# $n = [N]
-	jal FIB				## $n = fib $n
+	call FIB				## $n = fib $n
 	write $n, $tmp
 	halt
 .begin fib
 FIB:
 	cmp $n, $one		# $t = cmp $n 1
-	ble RET
+	ble RETURN
 	add $sp, 3, $sp		# $sp = $sp + 3
 	store $n, [$sp - 3]	# [$sp - 3] = $n
-	store $ra, [$sp - 1]# [$sp - 1] = $ra
 	add $n, -1, $n		# $n = $n - 1
-	jal FIB				## $n = fib $n
+	call FIB			# $n = fib $n
 	store $n, [$sp - 2]	# [$sp - 2] = $n
 	load [$sp - 3], $n	# $n = [$sp - 3]
 	add $n, -2, $n		# $n = $n - 2
-	jal FIB				## $n = fib $n
+	call FIB			# $n = fib $n
 	load [$sp - 2], $t	# $t = [$sp - 2]
 	add $n, $t, $n		# $n = $n + $t
-	load [$sp - 1], $ra	# $ra = [$sp - 2]
 	add $sp, -3, $sp	# $sp = $sp + 3
-RET:
-	jr $ra
+RETURN:
+	ret
 .end fib
 N:	.int 35
 STACK:

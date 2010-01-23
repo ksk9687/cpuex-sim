@@ -75,20 +75,26 @@ public class SuperScalar extends CPU {
 			return typeI(005, reg(p), reg(p), 0);
 		} else if (op.equals("jmp")) {
 			return typeI(070, imm(p, 3, false), 0, imm(p, 14, false));
-		} else if (op.equals("jal")) {
+		} else if (op.equals("call")) {
 			return typeI(071, 0, 0, imm(p, 14, false));
-		} else if (op.equals("jr")) {
-			return typeI(072, reg(p), 0, 0);
+		} else if (op.equals("ret")) {
+			return typeI(072, 0, 0, 0);
 		}
 		return super.getBinary(op, p);
 	}
 	
 	//Sim
 	protected int cond;
+	protected int callDepth;
+	protected int maxDepth;
+	protected int[] callStack;
 	
 	protected void init() {
 		super.init();
 		cond = 0;
+		callDepth = 0;
+		maxDepth = 0;
+		callStack = new int[1000];
 		countOpe = new long[64];
 		countCall = new long[MEMORYSIZE];
 	}
@@ -225,12 +231,13 @@ public class SuperScalar extends CPU {
 			} else {
 				pc++;
 			}
-		} else if (opecode == 071) { //jal
+		} else if (opecode == 071) { //call
 			countCall[imm]++;
-			regs[63] = pc + 1;
+			callStack[callDepth++] = pc + 1;
+			maxDepth = max(maxDepth, callDepth);
 			pc = imm;
-		} else if (opecode == 072) { //jr
-			pc = regs[rs];
+		} else if (opecode == 072) { //ret
+			pc = callStack[--callDepth];
 		} else {
 			super.step(ope);
 		}
@@ -266,8 +273,8 @@ public class SuperScalar extends CPU {
 		NAME[061] = "halt";
 		NAME[005] = "mov";
 		NAME[070] = "jmp";
-		NAME[071] = "jal";
-		NAME[072] = "jr";
+		NAME[071] = "call";
+		NAME[072] = "ret";
 	}
 	protected long[] countOpe;
 	protected long[] countCall;
@@ -278,6 +285,9 @@ public class SuperScalar extends CPU {
 		for (int i = 0; i < NAME.length; i++) if (NAME[i] != null) {
 			System.err.printf("| %s | %,d (%.3f) |%n", NAME[i], countOpe[i], 100.0 * countOpe[i] / (instruction));
 		}
+		System.err.println();
+		System.err.println("* CallStack");
+		System.err.printf("| MaxDepth | %d |%n", maxDepth);
 		System.err.println();
 	}
 	
