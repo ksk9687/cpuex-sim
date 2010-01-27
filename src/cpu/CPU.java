@@ -206,14 +206,14 @@ public abstract class CPU {
 	protected final int MEMORYSIZE;
 	protected int[] mems;
 	
-	protected final int load(int addr) {
+	protected int load(int addr) {
 		if (addr < 0 || addr >= MEMORYSIZE) {
 			throw new ExecuteException(String.format("IllegalAddress: %08x", addr));
 		}
 		return mems[addr];
 	}
 	
-	protected final void store(int addr, int i) {
+	protected void store(int addr, int i) {
 		if (addr < 0 || addr >= MEMORYSIZE) {
 			throw new ExecuteException(String.format("IllegalAddress: %08x", addr));
 		}

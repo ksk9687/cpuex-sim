@@ -97,6 +97,10 @@ public class SuperScalar extends CPU {
 		callStack = new int[1000];
 		countOpe = new long[64];
 		countCall = new long[MEMORYSIZE];
+		dataSize = prog.ss.length;
+		stackSize = heapSize = 0;
+		dataLoad = stackLoad = heapLoad = 0;
+		dataStore = stackStore = heapStore = 0;
 	}
 	
 	//ALU
@@ -243,6 +247,30 @@ public class SuperScalar extends CPU {
 		}
 	}
 	
+	protected int load(int addr) {
+		if (addr < 0x10000) dataLoad++;
+		else if (addr < 0x70000) {
+			heapLoad++;
+			heapSize = max(heapSize, addr - 0x10000 + 1);
+		} else {
+			stackLoad++;
+			stackSize = max(stackSize, 0x80000 - addr + 1);
+		}
+		return super.load(addr);
+	}
+	
+	protected void store(int addr, int i) {
+		if (addr < 0x10000) dataStore++;
+		else if (addr < 0x70000) {
+			heapStore++;
+			heapSize = max(heapSize, addr - 0x10000 + 1);
+		} else {
+			stackStore++;
+			stackSize = max(stackSize, 0x80000 - addr + 1);
+		}
+		super.store(addr, i);
+	}
+	
 	//Stat
 	protected static final String[] NAME = new String[64];
 	static {
@@ -278,6 +306,9 @@ public class SuperScalar extends CPU {
 	}
 	protected long[] countOpe;
 	protected long[] countCall;
+	protected int dataSize, stackSize, heapSize;
+	protected int dataLoad, stackLoad, heapLoad;
+	protected int dataStore, stackStore, heapStore;
 	
 	protected void printStat() {
 		System.err.println("* 命令実行数");
@@ -288,6 +319,12 @@ public class SuperScalar extends CPU {
 		System.err.println();
 		System.err.println("* CallStack");
 		System.err.printf("| MaxDepth | %d |%n", maxDepth);
+		System.err.println();
+		System.err.println("* Memory");
+		System.err.printf("| Type | Size | Load | Store |%n");
+		System.err.printf("| Data | %,d | %,d | %,d |%n", dataSize, dataLoad, dataStore);
+		System.err.printf("| Stack | %,d | %,d | %,d |%n", stackSize, stackLoad, stackStore);
+		System.err.printf("| Heap | %,d | %,d | %,d |%n", heapSize, heapLoad, heapStore);
 		System.err.println();
 	}
 	

@@ -76,11 +76,11 @@
 .define	$one $1
 .define	$n $2
 .define	$t $3
+.define N 35
 
 min_caml_main:
-	li STACK, $sp		# $sp = STACK
 	li 1, $one			# $one = 1
-	load [N], $n		# $n = [N]
+	li N, $n
 	call FIB				## $n = fib $n
 	write $n, $tmp
 	halt
@@ -102,6 +102,3 @@ FIB:
 RETURN:
 	ret
 .end fib
-N:	.int 35
-STACK:
-	.int 0				#スタックの位置
