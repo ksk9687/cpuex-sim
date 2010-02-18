@@ -1,28 +1,30 @@
 package cpu;
 
 import static java.lang.Math.*;
+import static java.util.Arrays.*;
 import static util.Utils.*;
-
-import java.util.Arrays;
-
+import java.awt.*;
+import java.util.*;
+import javax.swing.*;
+import javax.swing.table.*;
 import sim.*;
 import asm.*;
 
 public class SuperScalar extends CPU {
-
+	
 	public SuperScalar() {
 		super(100e6, 1 << 20, 1 << 6);
 	}
-
+	
 	//Asm
 	protected static int typeR(int op, int rs, int rt, int rd) {
 		return op << 26 | rs << 20 | rt << 14 | rd << 8;
 	}
-
+	
 	protected static int typeI(int op, int rs, int rt, int imm) {
 		return op << 26 | rs << 20 | rt << 14 | imm;
 	}
-
+	
 	protected int getBinary(String op, Parser p) {
 		if (op.equals("li")) {
 			return typeI(000, 0, reg(p), imm(p, 14, false));
@@ -60,10 +62,6 @@ public class SuperScalar extends CPU {
 			return typeR(031, reg(p), reg(p), reg(p));
 		} else if (op.equals("store")) {
 			return typeI(032, reg(p), reg(p), imm(p, 14, true));
-		} else if (op.equals("hsread")) {
-			throw new AssembleException("Not implemented");
-		} else if (op.equals("hswrite")) {
-			throw new AssembleException("Not implemented");
 		} else if (op.equals("read")) {
 			return typeI(050, 0, reg(p), 1);
 		} else if (op.equals("write")) {
@@ -85,171 +83,225 @@ public class SuperScalar extends CPU {
 		}
 		return super.getBinary(op, p);
 	}
-
+	
 	//Sim
+	protected final int MAXDEPTH = 16;
 	protected int cond;
 	protected int callDepth;
 	protected int maxDepth;
 	protected int[] callStack;
-
+	protected long[] canUse;
+	protected static final int[] delay = new int[64];
+	static {
+		delay[000] = 1; //li
+		delay[010] = 1; //add
+		delay[001] = 1; //addi
+		delay[011] = 1; //sub
+		delay[002] = 1; //sll
+		delay[020] = 4; //fadd
+		delay[021] = 4; //fsub
+		delay[022] = 4; //fmul
+		delay[023] = 4; //finv
+		delay[024] = 4; //fsqrt
+		delay[025] = 1; //fcmp
+		delay[006] = 1; //fabs
+		delay[007] = 1; //fneg
+		delay[030] = 2; //load
+		delay[031] = 2; //loadr
+		delay[050] = 1; //read
+		delay[051] = 1; //write
+	}
+	
 	protected void init() {
 		super.init();
 		cond = 0;
 		callDepth = 0;
 		maxDepth = 0;
-		callStack = new int[1000];
+		callStack = new int[MAXDEPTH];
+		canUse = new long[REGISTERSIZE];
 		countOpe = new long[64];
-		countCall = new long[MEMORYSIZE];
+		icache = new int[ICACHESIZE];
+		dcache = new int[DCACHESIZE];
+		fill(icache, -1);
+		fill(dcache, -1);
+		bpTable = new int[BP_TABLE_SIZE];
 		dataSize = prog.ss.length;
 		stackSize = heapSize = 0;
 		dataLoad = stackLoad = heapLoad = 0;
 		dataStore = stackStore = heapStore = 0;
+		iHit = iMiss = dHit = dMiss = 0;
+		bpHit = bpMiss = 0;
 	}
-
+	
 	//ALU
 	protected int cmp(int a, int b) {
 		return a > b ? 4 : a == b ? 2 : 1;
 	}
-
+	
 	//FPU
 	protected int fadd(int a, int b) {
 		return ftoi(itof(a) + itof(b));
 	}
-
+	
 	protected int fsub(int a, int b) {
 		return ftoi(itof(a) - itof(b));
 	}
-
+	
 	protected int fmul(int a, int b) {
 		return ftoi(itof(a) * itof(b));
 	}
-
+	
 	protected int finv(int a) {
 		return ftoi(1.0f / itof(a));
 	}
-
+	
 	protected int fsqrt(int a) {
 		return ftoi((float)sqrt(itof(a)));
 	}
-
+	
 	protected int fcmp(int a, int b) {
 		float fa = itof(a), fb = itof(b);
 		return fa > fb ? 4 : fa == fb ? 2 : 1;
 	}
-
+	
 	protected int fabs(int a) {
 		return ftoi(abs(itof(a)));
 	}
-
+	
 	protected int fneg(int a) {
 		return ftoi(-(itof(a)));
 	}
-
+	
 	protected final void step(int ope) {
 		int opecode = ope >>> 26;
 		int rs = ope >>> 20 & (REGISTERSIZE - 1);
 		int rt = ope >>> 14 & (REGISTERSIZE - 1);
 		int rd = ope >>> 8 & (REGISTERSIZE - 1);
 		int imm = ope & ((1 << 14) - 1);
-		clock += 1;
 		countOpe[opecode]++;
+		icache(pc);
 		step(ope, opecode, rs, rt, rd, imm);
 	}
-
+	
 	protected void step(int ope, int opecode, int rs, int rt, int rd, int imm) {
 		if (opecode == 000) { //li
+			stall(opecode, rt);
 			regs[rt] = imm;
-			pc++;
+			changePC(pc + 1);
 		} else if (opecode == 010) { //add
+			stall(opecode, rd, rs, rt);
 			regs[rd] = regs[rs] + regs[rt];
-			pc++;
+			changePC(pc + 1);
 		} else if (opecode == 001) { //addi
+			stall(opecode, rt, rs);
 			regs[rt] = regs[rs] + signExt(imm, 14);
-			pc++;
+			changePC(pc + 1);
 		} else if (opecode == 011) { //sub
+			stall(opecode, rd, rs, rt);
 			regs[rd] = regs[rs] - regs[rt];
-			pc++;
+			changePC(pc + 1);
 		} else if (opecode == 002) { //sll
+			stall(opecode, rt, rs);
 			regs[rt] = regs[rs] << imm;
-			pc++;
+			changePC(pc + 1);
 		} else if (opecode == 012) { //cmp
+			stall(opecode, -1, rs, rt);
 			cond = cmp(regs[rs], regs[rt]);
-			pc++;
+			changePC(pc + 1);
 		} else if (opecode == 003) { //cmpi
+			stall(opecode, -1, rs);
 			cond = cmp(regs[rs], signExt(imm, 14));
-			pc++;
+			changePC(pc + 1);
 		} else if (opecode == 020) { //fadd
+			stall(opecode, rd, rs, rt);
 			regs[rd] = fadd(regs[rs], regs[rt]);
-			pc++;
+			changePC(pc + 1);
 		} else if (opecode == 021) { //fsub
+			stall(opecode, rd, rs, rt);
 			regs[rd] = fsub(regs[rs], regs[rt]);
-			pc++;
+			changePC(pc + 1);
 		} else if (opecode == 022) { //fmul
+			stall(opecode, rd, rs, rt);
 			regs[rd] = fmul(regs[rs], regs[rt]);
-			pc++;
+			changePC(pc + 1);
 		} else if (opecode == 023) { //finv
+			stall(opecode, rd, rs);
 			regs[rd] = finv(regs[rs]);
-			pc++;
+			changePC(pc + 1);
 		} else if (opecode == 024) { //fsqrt
+			stall(opecode, rd, rs);
 			regs[rd] = fsqrt(regs[rs]);
-			pc++;
+			changePC(pc + 1);
 		} else if (opecode == 025) { //fcmp
+			stall(opecode, -1, rs, rt);
 			cond = fcmp(regs[rs], regs[rt]);
-			pc++;
+			changePC(pc + 1);
 		} else if (opecode == 006) { //fabs
+			stall(opecode, rd, rs);
 			regs[rd] = fabs(regs[rs]);
-			pc++;
+			changePC(pc + 1);
 		} else if (opecode == 007) { //fneg
+			stall(opecode, rd, rs);
 			regs[rd] = fneg(regs[rs]);
-			pc++;
+			changePC(pc + 1);
 		} else if (opecode == 030) { //load
+			stall(opecode, rt, rs);
 			regs[rt] = load(regs[rs] + signExt(imm, 14));
-			pc++;
+			changePC(pc + 1);
 		} else if (opecode == 031) { //loadr
+			stall(opecode, rd, rs, rt);
 			regs[rd] = load(regs[rs] + regs[rt]);
-			pc++;
+			changePC(pc + 1);
 		} else if (opecode == 032) { //store
+			stall(opecode, -1, rs, rt);
 			store(regs[rs] + signExt(imm, 14), regs[rt]);
-			pc++;
-		} else if (opecode == 040) { //hsread
-			throw new ExecuteException("Not implemented");
-		} else if (opecode == 041) { //hswrite
-			throw new ExecuteException("Not implemented");
+			changePC(pc + 1);
 		} else if (opecode == 050) { //read
+			stall(opecode, rt);
 			regs[rt] = read();
-			pc++;
+			changePC(pc + 1);
 		} else if (opecode == 051) { //write
+			stall(opecode, rt, rs);
 			regs[rt] = write(regs[rs]);
-			pc++;
+			changePC(pc + 1);
 		} else if (opecode == 052) { //ledout
+			stall(opecode, -1);
 			System.err.printf("LED: %s%n", toBinary(regs[rs]).substring(24));
-			pc++;
+			changePC(pc + 1);
 		} else if (opecode == 060) { //nop
-			pc++;
+			stall(opecode, -1);
+			changePC(pc + 1);
 		} else if (opecode == 061) { //halt
+			stall(opecode, -1);
 			printStat();
 			halted = true;
 		} else if (opecode == 005) { //mov
+			stall(opecode, rt, rs);
 			regs[rt] = regs[rs];
-			pc++;
+			changePC(pc + 1);
 		} else if (opecode == 070) { //jmp
+			stall(opecode, -1);
+			branchPredict((cond & rs) == 0 ? 1 : 0);
 			if ((cond & rs) == 0) {
-				pc = imm;
+				changePC(imm);
 			} else {
-				pc++;
+				changePC(pc + 1);
 			}
 		} else if (opecode == 071) { //call
-			countCall[imm]++;
+			stall(opecode, -1);
+			if (callDepth >= MAXDEPTH) throw new ExecuteException("Illegal Depth");
 			callStack[callDepth++] = pc + 1;
 			maxDepth = max(maxDepth, callDepth);
-			pc = imm;
+			changePC(imm);
 		} else if (opecode == 072) { //ret
-			pc = callStack[--callDepth];
+			stall(opecode, -1);
+			if (callDepth <= 0) throw new ExecuteException("Illegal Depth");
+			changePC(callStack[--callDepth]);
 		} else {
 			super.step(ope);
 		}
 	}
-
+	
 	protected int load(int addr) {
 		if (addr < 0x10000) dataLoad++;
 		else if (addr < 0x70000) {
@@ -259,9 +311,10 @@ public class SuperScalar extends CPU {
 			stackLoad++;
 			stackSize = max(stackSize, 0x80000 - addr + 1);
 		}
+		dcache(addr);
 		return super.load(addr);
 	}
-
+	
 	protected void store(int addr, int i) {
 		if (addr < 0x10000) dataStore++;
 		else if (addr < 0x70000) {
@@ -273,7 +326,118 @@ public class SuperScalar extends CPU {
 		}
 		super.store(addr, i);
 	}
-
+	
+	protected void stall(int opecode, int write, int...reads) {
+		long max = clock;
+		for (int r : reads) if (max < canUse[r]) max = canUse[r];
+//		if (write >= 0 && max < canUse[write]) throw new ExecuteException("WW Hazard!!");
+		clock = max + 1;
+		if (write >= 0) canUse[write] = clock + delay[opecode];
+	}
+	
+	//Cache
+	protected final int ICACHESIZE = 1 << 8;
+	protected final int DCACHESIZE = 1 << 11;
+	protected int[] icache;
+	protected int[] dcache;
+	
+	protected void icache(int a) {
+		a >>= 3;
+		if (icache[a & (ICACHESIZE - 1)] != a) {
+			icache[a & (ICACHESIZE - 1)] = a;
+			clock += 6;
+			iMiss++;
+		} else {
+			iHit++;
+		}
+	}
+	
+	protected void dcache(int a) {
+		if (dcache[a & (DCACHESIZE - 1)] != a) {
+			dcache[a & (DCACHESIZE - 1)] = a;
+			clock += 6;
+			for (int i = 0; i < 4; i++) dcache[(a + i) & (DCACHESIZE - 1)] = a + i;
+			dMiss++;
+		} else {
+			dHit++;
+		}
+	}
+	
+	//BranchPrediction
+	protected final int BP_TABLE_SIZE = 1 << 13;
+	protected int[] bpTable;
+	protected int bpHistory;
+	
+	protected void branchPredict(int taken) {
+		int p = (pc & (BP_TABLE_SIZE - 1)) ^ (bpHistory << 4);
+		if (taken == (bpTable[p] & 1)) {
+			bpHit++;
+		} else {
+			bpMiss++;
+			clock += 2;
+		}
+		bpTable[p] = taken << 1 | bpTable[p] >> 1;
+		bpHistory = (bpHistory << 1 | taken) & ((1 << 9) - 1);
+	}
+	
+	public String[] getViews() {
+		ArrayList<String> list = new ArrayList<String>(asList(super.getViews()));
+		list.add("CallStack");
+		return list.toArray(new String[0]);
+	}
+	
+	//CallStack
+	public SimView createView(String name) {
+		if (name.equals("CallStack")) {
+			return new CallStackView();
+		}
+		return super.createView(name);
+	}
+	
+	protected class CallStackView extends SimView {
+		
+		protected DefaultTableModel tableModel;
+		protected JTable table;
+		
+		protected CallStackView() {
+			super("CallStack");
+			tableModel = new DefaultTableModel();
+			table = new JTable(tableModel);
+			table.setFont(FONT);
+			table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
+				public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+					super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+					if (callDepth - 1 == row) {
+						setBackground(table.getSelectionBackground());
+					} else if (isSelected) {
+						setBackground(table.getSelectionBackground());
+					} else {
+						setBackground(table.getBackground());
+					}
+					return this;
+				}
+			});
+			table.setDefaultEditor(Object.class, null);
+			table.getTableHeader().setReorderingAllowed(false);
+			add(new JScrollPane(table), BorderLayout.CENTER);
+			setPreferredSize(new Dimension(200, 300));
+			pack();
+		}
+		
+		public void refresh() {
+			String[] label = {"Depth", "PC"};
+			String[][] data = new String[MAXDEPTH][2];
+			for (int i = 0; i < MAXDEPTH; i++) {
+				data[i][0] = "" + i;
+				data[i][1] = "" + callStack[i];
+			}
+			tableModel.setDataVector(data, label);
+			table.getColumnModel().getColumn(0).setMinWidth(50);
+			table.getColumnModel().getColumn(0).setMaxWidth(50);
+		}
+		
+	}
+	
 	//Stat
 	protected static final String[] NAME = new String[64];
 	static {
@@ -295,8 +459,6 @@ public class SuperScalar extends CPU {
 		NAME[030] = "load";
 		NAME[031] = "loadr";
 		NAME[032] = "store";
-		NAME[040] = "hsread";
-		NAME[041] = "hswrite";
 		NAME[050] = "read";
 		NAME[051] = "write";
 		NAME[052] = "ledout";
@@ -308,11 +470,12 @@ public class SuperScalar extends CPU {
 		NAME[072] = "ret";
 	}
 	protected long[] countOpe;
-	protected long[] countCall;
 	protected int dataSize, stackSize, heapSize;
-	protected int dataLoad, stackLoad, heapLoad;
-	protected int dataStore, stackStore, heapStore;
-
+	protected long dataLoad, stackLoad, heapLoad;
+	protected long dataStore, stackStore, heapStore;
+	protected long iHit, iMiss, dHit, dMiss;
+	protected long bpHit, bpMiss;
+	
 	protected void printStat() {
 		System.err.println("* 命令実行数");
 		System.err.printf("| Total | %,d |%n", instruction);
@@ -329,11 +492,26 @@ public class SuperScalar extends CPU {
 		System.err.printf("| Stack | %,d | %,d | %,d |%n", stackSize, stackLoad, stackStore);
 		System.err.printf("| Heap | %,d | %,d | %,d |%n", heapSize, heapLoad, heapStore);
 		System.err.println();
+		System.err.println("* ICache");
+		System.err.printf("| Total | %,d |%n", iHit + iMiss);
+		System.err.printf("| Hit | %,d (%.3f) |%n", iHit, 100.0 * iHit / (iHit + iMiss));
+		System.err.printf("| Miss | %,d (%.3f) |%n", iMiss, 100.0 * iMiss / (iHit + iMiss));
+		System.err.println();
+		System.err.println("* DCache");
+		System.err.printf("| Total | %,d |%n", dHit + dMiss);
+		System.err.printf("| Hit | %,d (%.3f) |%n", dHit, 100.0 * dHit / (dHit + dMiss));
+		System.err.printf("| Miss | %,d (%.3f) |%n", dMiss, 100.0 * dMiss / (dHit + dMiss));
+		System.err.println();
+		System.err.println("* BranchPrediction");
+		System.err.printf("| Total | %,d |%n", bpHit + bpMiss);
+		System.err.printf("| Hit | %,d (%.3f) |%n", bpHit, 100.0 * bpHit / (bpHit + bpMiss));
+		System.err.printf("| Miss | %,d (%.3f) |%n", bpMiss, 100.0 * bpMiss / (bpHit + bpMiss));
+		System.err.println();
 	}
-
+	
 	//Debug
 	protected static class Debug extends SuperScalar {
-
+		
 		protected int getBinary(String op, Parser p) {
 			if (op.equals("debug_int")) {
 				return typeI(060, 1, reg(p), 0);
@@ -344,42 +522,43 @@ public class SuperScalar extends CPU {
 			}
 			return super.getBinary(op, p);
 		}
-
+		
 		protected void step(int ope, int opecode, int rs, int rt, int rd, int imm) {
 			if (opecode == 060 && rs == 1) { //debug_int
 				System.err.printf("%s(%d)%n", toHex(regs[rt]), regs[rt]);
-				pc++;
+				changePC(pc + 1);
 			} else if (opecode == 060 && rs == 2) { //debug_float
 				System.err.printf("%.6E%n", itof(regs[rt]));
-				pc++;
+				changePC(pc + 1);
 			} else if (opecode == 060 && rs == 3) { //break
-				pc++;
+				changePC(pc + 1);
 				throw new ExecuteException("Break!");
 			} else {
 				super.step(ope, opecode, rs, rt, rd, imm);
 			}
 		}
 	}
-
+	
+	//FPU
 	//FPU
 	protected static class FPU extends SuperScalar {
-
+		
 		protected int fadd(int a, int b) {
 			int as, ae, am;
 			int bs, be, bm;
 			int rs, re, rm;
-
+			
 			if (Float.compare(abs(itof(a)), 0.0f) == 0) return b;
 			if (Float.compare(abs(itof(b)), 0.0f) == 0) return a;
-
+			
 			as = (a >> 31) & 1; ae = (a >> 23) & 0xff; am = a & 0x7fffff;
 			bs = (b >> 31) & 1; be = (b >> 23) & 0xff; bm = b & 0x7fffff;
-
+			
 			re = max(ae, be);
 			am = (as == 1 ? -1 : 1) * ((am | (1 << 23)) >>> min(31, (re - ae)));
 			bm = (bs == 1 ? -1 : 1) * ((bm | (1 << 23)) >>> min(31, (re - be)));
 			int m = am + bm;
-
+			
 			if (m == 0) {
 				rm = rs = re = 0;
 			} else {
@@ -399,130 +578,130 @@ public class SuperScalar extends CPU {
 				}
 				rm = m;
 			}
-
+			
 			return ((rs & 1) << 31) | ((re & 0xff) << 23) | (rm & 0x7fffff);
 		}
-
+		
 		protected int fsub(int a, int b) {
 			return fadd(a, fneg(b));
 		}
-
+		
 		private int downto(int a, int h, int l) {
 			int n = h - l + 1;
 			a = (a >>> l);
 			return a & ((1 << n) - 1);
 		}
-
+		
 		protected int fmul(int a, int b) {
 			if (downto(a, 30, 23) == 0 || downto(b, 30, 23) == 0) return 0;
-
+			
 			int ah = downto(a, 22, 12) | (1 << 11), al = downto(a, 11, 0);
 			int bh = downto(b, 22, 12) | (1 << 11), bl = downto(b, 11, 0);
-
+			
 			int omh1 = ah * bh;
 			int omm1 = bh * bl;
 			int omm2 = bh * al;
-
+			
 			int oe1 = downto(a, 30, 23) + downto(b, 30, 23) - 127;
-
+			
 			int omm3 = downto(omm1, 23, 11) + downto(omm2, 23, 11);
 			int omh2 = omh1;
 			int oe2 = oe1;
 			int oe2p1 = oe1 + 1;
-
+			
 			int om1 = omh2 + downto(omm3, 13, 1) + 1;
 			om1 <<= 1;
 			om1 |= (omm3 & 1);
-
+			
 			int om2 = ((om1 >> 24) & 1) == 1 ? downto(om1, 23, 1) : downto(om1, 22, 0);
 			int oe3 = ((om1 >> 24) & 1) == 1 ? oe2p1 : oe2;
-
+			
 			int rs = ((a >> 31) & 1) ^ ((b >> 31) & 1);
 			int re = oe3;
 			int rm = om2;
 			return ((rs & 1) << 31) | ((re & 0xff) << 23) | (rm & 0x7fffff);
 		}
-
+		
 		protected int finv(int a) {
 			int as, ae, am;
 			int rs, re, rm;
-
+			
 			as = (a >> 31) & 1; ae = (a >> 23) & 0xff; am = a & 0x7fffff;
-
+			
 			am = (1 << 23) | am;
 			long x1 = am >> 12;
 			long x2 = am & 0xfff;
-
+			
 			long c = finv_table[(int)x1 - (1 << 11)];
 			long x = (x1 << 12) | (x2 ^ 0xfff);
-
+			
 			long ch = c >>> 12, cl = c & 0xfff;
 			long xh = x >>> 12, xl = x & 0xfff;
-
+			
 			long oh = ch * xh;
 			long omm1 = (ch * xl) >>> 11;
 			long omm2 = (cl * xh) >>> 11;
-
+			
 			long om1 = (oh << 1) + omm1 + omm2 + 2;
 			long om2 = (om1 & (1L << 24)) != 0 ? (om1 >>> 1) : om1;
 			long oe = 254 - ae - ((om1 & (1L << 24)) != 0 ? 0 : 1);
-
+			
 			rs = as;
 			re = (int)oe;
 			rm = (int)(om2 & 0x7fffff);
 			return ((rs & 1) << 31) | ((re & 0xff) << 23) | (rm & 0x7fffff);
 		}
-
+		
 		protected int fsqrt(int a) {
 			int as, ae, am;
 			int rs, re, rm;
-
+			
 			if (a < 0) return Float.floatToIntBits(Float.NaN);
-
+			
 			as = (a >> 31) & 1; ae = (a >> 23) & 0xff; am = a & 0x7fffff;
-
+			
 			am = (1 << 23) | am;
 			long oe = 63 + (ae >>> 1);
-
+			
 			int idx = (((ae & 1) ^ 1) << 10) | ((am >>> 13) ^ (1 << 10));
 			long c = fsqrt_table[idx];
-
+			
 			long x1 = am >>> 13;
 			long x2 = am & ((1 << 13) - 1);
-
+			
 			long x = 0;
-
+			
 			x |= x1 << 13;
 			x |= (1 + ((x2 >>> 12) & 1)) << 11;
 			x |= (x2 & ((1 << 12) - 1)) >> 11;
-
+			
 			if (a == 0) {
 				x = c = 0;
 				oe = 0;
 			}
-
+			
 			long ch = c >>> 12, cl = c & 0xfff;
 			long xh = x >>> 12, xl = x & 0xfff;
-
+			
 			long oh = ch * xh;
 			long omm1 = (ch * xl) >>> 11;
 			long omm2 = (cl * xh) >>> 11;
-
+			
 			long om1 = (oh << 1) + omm1 + omm2 + 2;
 			long om2 = (om1 & (1L << 24)) != 0 ? (om1 >> 1) : om1;
 			long oe2 = oe + ((om1 & (1L << 24)) != 0 ? 1 : 0);
-
+			
 			rs = as;
 			re = (int)oe2;
 			rm = (int)(om2 & 0x7fffff);
 			return ((rs & 1) << 31) | ((re & 0xff) << 23) | (rm & 0x7fffff);
 		}
-
+		
 		protected int fneg(int a) {
 			int s = (1 & (a >> 31)) == 1 ? 0 : 1;
 			return (s << 31) | (0x7fffffff & a);
 		}
-
+		
 		private int finv_table[] = {
 				16769026,
 				16752666,
@@ -2573,7 +2752,7 @@ public class SuperScalar extends CPU {
 				4197377,
 				4195328,
 		};
-
+		
 		private int fsqrt_table[] = {
 				16773121,
 				16764941,
@@ -4625,5 +4804,4 @@ public class SuperScalar extends CPU {
 				8389632,
 		};
 	}
-
 }

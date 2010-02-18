@@ -40,7 +40,7 @@ jmpやliなどの即値としてラベルを指定することができる
 .int でint値埋め込み
 .float でfloat値埋め込み
 .begin name ~ .end name でブロックに名前nameを付けブロックの実行数とブロック内の実行命令数をカウントする
-.count name で次の命令に名前nameを付けの実行数をカウントする
+.count name で次の命令に名前nameを付け、その実行数をカウントする
 %pcでpcの値に、 %{ exp } でexpを計算した値に、それぞれ置き換わる (例: li $ra %{ %pc + 2 } )
 
 *デバッグ用CPU

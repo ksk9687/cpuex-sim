@@ -76,7 +76,7 @@
 .define	$one $1
 .define	$n $2
 .define	$t $3
-.define N 35
+.define N 10
 
 min_caml_main:
 	li 1, $one			# $one = 1

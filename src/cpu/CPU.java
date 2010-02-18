@@ -95,6 +95,7 @@ public abstract class CPU {
 			mems[i] = prog.ss[i].binary;
 		}
 		counts = new long[prog.ss.length + 1];
+		clocks = new long[prog.ss.length + 1];
 		init();
 	}
 	
@@ -105,40 +106,33 @@ public abstract class CPU {
 		if (halted) {
 			throw new ExecuteException("Finished!");
 		}
-		if (pc < 0 || pc >= prog.ss.length) {
-			throw new ExecuteException(String.format("IllegalPC: %08x", pc));
-		}
-		counts[pc]++;
+		int p = pc;
+		long c = clock;
 		step(mems[pc]);
-		instruction++;
+		if (!halted) {
+			instruction++;
+			counts[p]++;
+			clocks[p] += clock - c;
+		}
 	}
 	
 	protected void step(int ope) {
 		throw new ExecuteException(String.format("IllegalOperation: %08x", ope));
 	}
 	
-	//View
-	public String[] getViews() {
-		return new String[] {"Source", "Status", "Register", "Memory", "Stat"};
-	}
-	
-	public SimView createView(String name) {
-		if (name.equals("Source")) {
-			return new SourceView();
-		} else if (name.equals("Status")) {
-			return new StatusView();
-		} else if (name.equals("Register")) {
-			return new RegisterView();
-		} else if (name.equals("Memory")) {
-			return new MemoryView();
-		} else if (name.equals("Stat")) {
-			return new StatView();
+	protected void changePC(int newPC) {
+		if (newPC < 0 || newPC >= prog.ss.length) {
+			throw new ExecuteException(String.format("IllegalPC: %d", pc));
 		}
-		failWith(String.format("%s: 存在しないView名", name));
-		return null;
+		pc = newPC;
 	}
 	
-	protected class StatusView extends SimView {
+	//Status
+	public Status getStatus() {
+		return new Status();
+	}
+	
+	public class Status extends JComponent {
 		
 		protected JLabel pcLabel;
 		protected JLabel timeLabel;
@@ -147,8 +141,7 @@ public abstract class CPU {
 		protected JLabel readLabel;
 		protected JLabel writeLabel;
 		
-		protected StatusView() {
-			super("Status");
+		protected Status() {
 			setLayout(new GridLayout(6, 1));
 			add(pcLabel = new JLabel("pc", JLabel.CENTER));
 			add(timeLabel = new JLabel("time", JLabel.CENTER));
@@ -156,7 +149,7 @@ public abstract class CPU {
 			add(clockLabel = new JLabel("clock", JLabel.CENTER));
 			add(readLabel = new JLabel("read", JLabel.CENTER));
 			add(writeLabel = new JLabel("write", JLabel.CENTER));
-			pack();
+			setPreferredSize(new Dimension(130, 120));
 		}
 		
 		public void refresh() {
@@ -168,6 +161,25 @@ public abstract class CPU {
 			writeLabel.setText(String.format("Write %,d bytes", writeByteNum));
 		}
 		
+	}
+	
+	//View
+	public String[] getViews() {
+		return new String[] {"Source", "Register", "Memory", "Stat"};
+	}
+	
+	public SimView createView(String name) {
+		if (name.equals("Source")) {
+			return new SourceView();
+		} else if (name.equals("Register")) {
+			return new RegisterView();
+		} else if (name.equals("Memory")) {
+			return new MemoryView();
+		} else if (name.equals("Stat")) {
+			return new StatView();
+		}
+		failWith(String.format("%s: 存在しないView名", name));
+		return null;
 	}
 	
 	//IO
@@ -232,6 +244,9 @@ public abstract class CPU {
 		
 		protected MemoryView() {
 			super("Memory");
+			address = 0;
+			from = 0;
+			to = SIZE;
 			addressField = new JTextField("0");
 			addressField.setFont(FONT);
 			addressField.setHorizontalAlignment(JTextField.CENTER);
@@ -241,6 +256,8 @@ public abstract class CPU {
 						int p = parseInt(addressField.getText());
 						if (0 <= p && p < MEMORYSIZE) {
 							address = p;
+							from = max(address - SIZE, 0);
+							to = min(address + SIZE, MEMORYSIZE);
 							refresh();
 							table.scrollRectToVisible(table.getCellRect(address - from, 0, true));
 						}
@@ -252,6 +269,19 @@ public abstract class CPU {
 			tableModel = new DefaultTableModel();
 			table = new JTable(tableModel);
 			table.setFont(FONT);
+			table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
+				public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+					super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+					if (from + row == address) {
+						setBackground(table.getSelectionBackground());
+					} else if (isSelected) {
+						setBackground(table.getSelectionBackground());
+					} else {
+						setBackground(table.getBackground());
+					}
+					return this;
+				}
+			});
 			table.setDefaultEditor(Object.class, null);
 			table.getTableHeader().setReorderingAllowed(false);
 			table.getTableHeader().addMouseListener(new MouseAdapter() {
@@ -268,8 +298,6 @@ public abstract class CPU {
 		}
 		
 		public void refresh() {
-			from = max(address - SIZE, 0);
-			to = min(address + SIZE, MEMORYSIZE);
 			String[] label = {"Address", TYPE[type]};
 			String[][] data = new String[to - from][2];
 			for (int i = from; i < to; i++) {
@@ -296,6 +324,7 @@ public abstract class CPU {
 		protected DefaultTableModel tableModel;
 		protected JTable table;
 		protected int type;
+		String[][] data = new String[REGISTERSIZE][2];
 		
 		protected RegisterView() {
 			super("Register");
@@ -319,7 +348,6 @@ public abstract class CPU {
 		
 		public void refresh() {
 			String[] label = {"Name", TYPE[type]};
-			String[][] data = new String[REGISTERSIZE][2];
 			for (int i = 0; i < REGISTERSIZE; i++) {
 				data[i][0] = "$" + i;
 				if (type == 0) data[i][1] = toHex(regs[i]);
@@ -337,15 +365,25 @@ public abstract class CPU {
 	//Source
 	protected Program prog;
 	protected long[] counts;
+	protected long[] clocks;
 	
 	protected class SourceView extends SimView {
 		
 		protected boolean trackingPC = true;
 		protected DefaultTableModel tableModel;
 		protected JTable table;
+		protected String[] label = {"Line", "PC", "", "Count", "Clocks"};
+		protected String[][] data = new String[prog.lines.length][5];
 		
 		protected SourceView() {
 			super("Source");
+			for (int i = 0; i < prog.lines.length; i++) {
+				data[i][0] = "" + (i + 1);
+				data[i][1] = "";
+				data[i][2] = prog.lines[i];
+				data[i][3] = "";
+				data[i][4] = "";
+			}
 			tableModel = new DefaultTableModel();
 			table = new JTable(tableModel);
 			table.setFont(FONT);
@@ -365,21 +403,15 @@ public abstract class CPU {
 			table.setDefaultEditor(Object.class, null);
 			table.getTableHeader().setReorderingAllowed(false);
 			add(new JScrollPane(table), BorderLayout.CENTER);
+			setPreferredSize(new Dimension(600, 400));
 			pack();
 		}
 		
 		public void refresh() {
-			String[] label = {"Line", "PC", "", "Count"};
-			String[][] data = new String[prog.lines.length][4];
-			for (int i = 0; i < prog.lines.length; i++) {
-				data[i][0] = "" + (i + 1);
-				data[i][1] = "";
-				data[i][2] = prog.lines[i];
-				data[i][3] = "";
-			}
-			for (int i = prog.ss.length - 1; i >= 0; i--) {
+			for (int i = 0; i < prog.ss.length; i++) {
 				data[prog.ss[i].lineID][1] = "" + i;
 				data[prog.ss[i].lineID][3] = String.format("%,10d", counts[i]);
+				data[prog.ss[i].lineID][4] = String.format("%,10d", clocks[i]);
 			}
 			tableModel.setDataVector(data, label);
 			table.getColumnModel().getColumn(0).setMinWidth(50);
@@ -388,6 +420,8 @@ public abstract class CPU {
 			table.getColumnModel().getColumn(1).setMaxWidth(50);
 			table.getColumnModel().getColumn(3).setMinWidth(100);
 			table.getColumnModel().getColumn(3).setMaxWidth(100);
+			table.getColumnModel().getColumn(4).setMinWidth(100);
+			table.getColumnModel().getColumn(4).setMaxWidth(100);
 			if (trackingPC) {
 				table.scrollRectToVisible(table.getCellRect(prog.ss[pc].lineID, 0, true));
 			}
@@ -401,8 +435,8 @@ public abstract class CPU {
 		
 		protected DefaultTableModel tableModel;
 		protected JTable table;
-		protected String[] label = {"Name", "Count", "Total"};
-		protected String[][] data = new String[prog.names.length][3];
+		protected String[] label = {"Name", "Count", "Total", "Clocks"};
+		protected String[][] data = new String[prog.names.length][4];
 		
 		protected StatView() {
 			super("Stat");
@@ -414,37 +448,43 @@ public abstract class CPU {
 			add(new JButton(new AbstractAction("Output") {
 				public void actionPerformed(ActionEvent e) {
 					System.err.println("* ブロック実行数");
-					System.err.printf("| %s | %s | %s |%n", label[0], label[1], label[2]);
+					System.err.printf("| %s | %s | %s | %s |%n", label[0], label[1], label[2], label[3]);
 					for (int i = 0; i < prog.names.length; i++) {
-						System.err.printf("| %s | %s | %s |%n", data[i][0].trim(), data[i][1].trim(), data[i][2].trim());
+						System.err.printf("| %s | %s | %s | %s |%n", data[i][0].trim(), data[i][1].trim(), data[i][2].trim(), data[i][3].trim());
 					}
 				}
 			}), BorderLayout.SOUTH);
 			add(new JScrollPane(table), BorderLayout.CENTER);
-			setPreferredSize(new Dimension(500, 400));
+			setPreferredSize(new Dimension(600, 400));
 			pack();
 		}
 		
 		public void refresh() {
 			long[] sum = new long[prog.ss.length + 1];
+			long[] sumClocks = new long[prog.ss.length + 1];
 			long[] count = new long[prog.names.length];
 			long[] total = new long[prog.names.length];
+			long[] totalClocks = new long[prog.names.length];
 			for (int i = 0; i < prog.ss.length; i++) {
 				sum[i + 1] = sum[i] + counts[i];
+				sumClocks[i + 1] = sumClocks[i] + clocks[i];
 			}
 			for (int i = 0; i < prog.ids.length; i++) {
 				count[prog.ids[i]] += counts[prog.begin[i]];
 				total[prog.ids[i]] += sum[prog.end[i]] - sum[prog.begin[i]];
+				totalClocks[prog.ids[i]] += sumClocks[prog.end[i]] - sumClocks[prog.begin[i]];
 			}
 			for (int i = 0; i < prog.names.length; i++) {
 				data[i][0] = prog.names[i];
 				data[i][1] = String.format("%,14d", count[i]);
 				data[i][2] = String.format("%,14d", total[i]);
+				data[i][3] = String.format("%,14d", totalClocks[i]);
 			}
 			tableModel.setDataVector(data, label);
 			table.getColumnModel().getColumn(0).setMinWidth(200);
 			table.getColumnModel().getColumn(1).setMinWidth(120);
 			table.getColumnModel().getColumn(2).setMinWidth(120);
+			table.getColumnModel().getColumn(3).setMinWidth(120);
 		}
 		
 	}

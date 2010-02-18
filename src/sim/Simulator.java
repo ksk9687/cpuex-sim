@@ -1,7 +1,9 @@
 package sim;
 
+import static java.lang.Math.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.beans.*;
 import java.io.*;
 import java.util.*;
 import javax.swing.*;
@@ -55,6 +57,36 @@ public class Simulator {
 				}
 			}));
 		}
+		viewMenu.add(new JSeparator());
+		viewMenu.add(new JMenuItem(new AbstractAction("Minimize") {
+			public void actionPerformed(ActionEvent arg0) {
+				for (JInternalFrame f : desktop.getAllFrames()) {
+					try {
+						f.setIcon(true);
+					} catch (PropertyVetoException e) {
+					}
+				}
+			}
+		}));
+		viewMenu.add(new JMenuItem(new AbstractAction("Clear") {
+			public void actionPerformed(ActionEvent arg0) {
+				for (JInternalFrame f : desktop.getAllFrames()) {
+					if (f.isClosable()) {
+						try {
+							f.setClosed(true);
+						} catch (PropertyVetoException e) {
+						}
+					} else {
+						f.setLocation(0, 0);
+						try {
+							f.setMaximum(false);
+							f.setIcon(false);
+						} catch (PropertyVetoException e) {
+						}
+					}
+				}
+			}
+		}));
 		menubar.add(styleMenu);
 		menubar.add(viewMenu);
 		frame = new JFrame("しみゅれーた");
@@ -84,14 +116,34 @@ public class Simulator {
 		frame.repaint();
 	}
 	
-	private Random r = new Random();
 	private void setLocation(SimView view) {
 		int x = 0, y = 0;
-		if (view.getWidth() < desktop.getWidth()) {
-			x = r.nextInt(desktop.getWidth() - view.getWidth());
+		long minArea = Long.MAX_VALUE;
+		TreeSet<Integer> xs = new TreeSet<Integer>(), ys = new TreeSet<Integer>();
+		xs.add(0);
+		ys.add(0);
+		xs.add(desktop.getWidth() - view.getWidth());
+		ys.add(desktop.getHeight() - view.getHeight() - view.getMinimumSize().height);
+		for (JInternalFrame f : desktop.getAllFrames()) if (f != view && !f.isIcon()) {
+			xs.add(f.getX() + f.getWidth());
+			xs.add(f.getX() - view.getWidth());
+			ys.add(f.getY() + f.getHeight());
+			ys.add(f.getY() - view.getHeight());
 		}
-		if (view.getHeight() < desktop.getHeight()) {
-			y = r.nextInt(desktop.getHeight() - view.getHeight());
+		for (int py : ys) if (0 <= py && py + view.getHeight() <= desktop.getHeight() - view.getMinimumSize().height) {
+			for (int px : xs) if (0 <= px && px + view.getWidth() <= desktop.getWidth()) {
+				long tmp = 0;
+				for (JInternalFrame f : desktop.getAllFrames()) if (f != view && !f.isIcon()) {
+					long dx = max(0, min(px + view.getWidth(), f.getX() + f.getWidth()) - max(px, f.getX()));
+					long dy = max(0, min(py + view.getHeight(), f.getY() + f.getHeight()) - max(py, f.getY()));
+					tmp += dx * dy;
+				}
+				if (minArea > tmp) {
+					minArea = tmp;
+					x = px;
+					y = py;
+				}
+			}
 		}
 		view.setLocation(x, y);
 	}
@@ -99,12 +151,13 @@ public class Simulator {
 	private class RunView extends SimView {
 		
 		private boolean running;
+		private CPU.Status status;
 		
 		private RunView() {
 			super("Run");
-			setLayout(new GridLayout(2, 1));
 			setClosable(false);
-			add(new JButton(new AbstractAction("run") {
+			JPanel panel = new JPanel(new GridLayout(1, 2));
+			panel.add(new JButton(new AbstractAction("run") {
 				public void actionPerformed(ActionEvent ae) {
 					running = true;
 					new Thread(new Runnable() {
@@ -113,17 +166,21 @@ public class Simulator {
 								while (running) {
 									cpu.step();
 								}
-							} catch (ExecuteException e) {
-								JOptionPane.showMessageDialog(frame, e.getMessage());
+							} catch (final ExecuteException e) {
+								SwingUtilities.invokeLater(new Runnable() {
+									public void run() {
+										JOptionPane.showMessageDialog(frame, e.getMessage());
+									}
+								});
 							}
 						}
 					}).start();
-					JOptionPane.showMessageDialog(frame, "Running...", "Running", JOptionPane.PLAIN_MESSAGE);
+					JOptionPane.showOptionDialog(frame, "Running...", "Running", JOptionPane.CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null, new String[] {"Stop"}, "Stop");
 					running = false;
 					refreshAll();
 				}
 			}));
-			add(new JButton(new AbstractAction("step") {
+			panel.add(new JButton(new AbstractAction("step") {
 				public void actionPerformed(ActionEvent ae) {
 					try {
 						cpu.step();
@@ -133,10 +190,13 @@ public class Simulator {
 					refreshAll();
 				}
 			}));
+			add(status = cpu.getStatus(), BorderLayout.CENTER);
+			add(panel, BorderLayout.SOUTH);
 			pack();
 		}
 		
 		public void refresh() {
+			status.refresh();
 		}
 		
 	}
