@@ -160,7 +160,7 @@ public class Assembler {
 					int i = namemap.get(id);
 					ids.add(i);
 					begin.add(list.size());
-					end.add(list.size());
+					end.add(list.size() + 1);
 				} else {
 					list.add(s);
 				}
@@ -170,6 +170,7 @@ public class Assembler {
 		}
 		for (int i : last) if (i >= 0) throw new AssembleException("beginとendの対応が取れていません");
 		ss = list.toArray(new Statement[0]);
+		for (int i : begin) if (i >= ss.length) throw new AssembleException("マクロの位置が不正です");
 		for (Define def : defs) {
 			replace(def.ss, labels);
 			replace(def.st, labels);

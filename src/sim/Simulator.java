@@ -5,6 +5,7 @@ import java.awt.*;
 import java.awt.event.*;
 import java.beans.*;
 import java.io.*;
+import java.lang.reflect.*;
 import java.util.*;
 import javax.swing.*;
 import asm.*;
@@ -163,8 +164,16 @@ public class Simulator {
 					new Thread(new Runnable() {
 						public void run() {
 							try {
+								int count = 0;
 								while (running) {
 									cpu.step();
+									if ((++count & 0xffff) == 0) {
+										SwingUtilities.invokeAndWait(new Runnable() {
+											public void run() {
+												refresh();
+											}
+										});
+									}
 								}
 							} catch (final ExecuteException e) {
 								SwingUtilities.invokeLater(new Runnable() {
@@ -172,6 +181,10 @@ public class Simulator {
 										JOptionPane.showMessageDialog(frame, e.getMessage());
 									}
 								});
+							} catch (InterruptedException e) {
+								e.printStackTrace();
+							} catch (InvocationTargetException e) {
+								e.printStackTrace();
 							}
 						}
 					}).start();

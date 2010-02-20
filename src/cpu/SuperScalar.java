@@ -119,12 +119,13 @@ public class SuperScalar extends CPU {
 		callStack = new int[MAXDEPTH];
 		canUse = new long[REGISTERSIZE];
 		countOpe = new long[64];
+		clockOpe = new long[64];
 		icache = new int[ICACHESIZE];
 		dcache = new int[DCACHESIZE];
 		fill(icache, -1);
 		fill(dcache, -1);
 		bpTable = new int[BP_TABLE_SIZE];
-		dataSize = prog.ss.length;
+		stalled = 0;
 		stackSize = heapSize = 0;
 		dataLoad = stackLoad = heapLoad = 0;
 		dataStore = stackStore = heapStore = 0;
@@ -178,8 +179,10 @@ public class SuperScalar extends CPU {
 		int rd = ope >>> 8 & (REGISTERSIZE - 1);
 		int imm = ope & ((1 << 14) - 1);
 		countOpe[opecode]++;
+		long c = clock;
 		icache(pc);
 		step(ope, opecode, rs, rt, rd, imm);
+		clockOpe[opecode] += clock - c;
 	}
 	
 	protected void step(int ope, int opecode, int rs, int rt, int rd, int imm) {
@@ -265,7 +268,7 @@ public class SuperScalar extends CPU {
 			changePC(pc + 1);
 		} else if (opecode == 052) { //ledout
 			stall(opecode, -1);
-			System.err.printf("LED: %s%n", toBinary(regs[rs]).substring(24));
+			System.out.printf("LED: %s%n", toBinary(regs[rs]).substring(24));
 			changePC(pc + 1);
 		} else if (opecode == 060) { //nop
 			stall(opecode, -1);
@@ -330,6 +333,7 @@ public class SuperScalar extends CPU {
 		long max = clock;
 		for (int r : reads) if (max < canUse[r]) max = canUse[r];
 //		if (write >= 0 && max < canUse[write]) throw new ExecuteException("WW Hazard!!");
+		stalled += max - clock;
 		clock = max + 1;
 		if (write >= 0) canUse[write] = clock + delay[opecode];
 	}
@@ -437,6 +441,88 @@ public class SuperScalar extends CPU {
 		
 	}
 	
+	//Data
+	protected Data[] getData() {
+		ArrayList<Data> list = new ArrayList<Data>(asList(super.getData()));
+		list.add(new StallData());
+		list.add(new ICacheData());
+		list.add(new DCacheData());
+		list.add(new BranchData());
+		return list.toArray(new Data[0]);
+	}
+	
+	protected class StallData extends Data {
+		
+		private long m;
+		
+		protected StallData() {
+			super("Stall");
+		}
+		
+		protected void begin() {
+			m = stalled;
+		}
+		
+		protected void end(int pc) {
+			data[pc] += stalled - m;
+		}
+		
+	}
+	
+	protected class ICacheData extends Data {
+		
+		private long m;
+		
+		protected ICacheData() {
+			super("ICacheMiss");
+		}
+		
+		protected void begin() {
+			m = iMiss;
+		}
+		
+		protected void end(int pc) {
+			data[pc] += iMiss - m;
+		}
+		
+	}
+	
+	protected class DCacheData extends Data {
+		
+		private long m;
+		
+		protected DCacheData() {
+			super("DCacheMiss");
+		}
+		
+		protected void begin() {
+			m = dMiss;
+		}
+		
+		protected void end(int pc) {
+			data[pc] += dMiss - m;
+		}
+		
+	}
+	
+	protected class BranchData extends Data {
+		
+		private long m;
+		
+		protected BranchData() {
+			super("BranchMiss");
+		}
+		
+		protected void begin() {
+			m = bpMiss;
+		}
+		
+		protected void end(int pc) {
+			data[pc] += bpMiss - m;
+		}
+		
+	}
+	
 	//Stat
 	protected static final String[] NAME = new String[64];
 	static {
@@ -469,6 +555,8 @@ public class SuperScalar extends CPU {
 		NAME[072] = "ret";
 	}
 	protected long[] countOpe;
+	protected long[] clockOpe;
+	protected long stalled;
 	protected int dataSize, stackSize, heapSize;
 	protected long dataLoad, stackLoad, heapLoad;
 	protected long dataStore, stackStore, heapStore;
@@ -476,36 +564,47 @@ public class SuperScalar extends CPU {
 	protected long bpHit, bpMiss;
 	
 	protected void printStat() {
-		System.err.println("* 命令実行数");
-		System.err.printf("| Total | %,d |%n", instruction);
+		System.out.printf("コード長:%d%n", progSize);
+		System.out.println();
+		System.out.println("* Time");
+		System.out.printf("| Total | %.3f |%n", clock / Hz);
+		System.out.printf("| Instruction | %.3f |%n", instruction / Hz);
+		System.out.printf("| Stall | %.3f |%n", stalled / Hz);
+		System.out.printf("| ICacheMiss | %.3f |%n", iMiss * 6 / Hz);
+		System.out.printf("| DCacheMiss | %.3f |%n", dMiss * 6 / Hz);
+		System.out.printf("| BranchMiss | %.3f |%n", bpMiss * 2 / Hz);
+		System.out.println();
+		System.out.println("* InstructionCount");
+		System.out.println("| Name | Count | Clocks | CPI |");
+		System.out.printf("| Total | %,d | %,d | %.3f |%n", instruction, clock, (double)clock / instruction);
 		for (int i = 0; i < NAME.length; i++) if (NAME[i] != null) {
-			System.err.printf("| %s | %,d (%.3f) |%n", NAME[i], countOpe[i], 100.0 * countOpe[i] / (instruction));
+			System.out.printf("| %s | %,d (%.3f) | %,d (%.3f) | %.3f |%n", NAME[i], countOpe[i], 100.0 * countOpe[i] / instruction, clockOpe[i], 100.0 * clockOpe[i] / clock, countOpe[i] == 0 ? 0 : (double)clockOpe[i] / countOpe[i]);
 		}
-		System.err.println();
-		System.err.println("* CallStack");
-		System.err.printf("| MaxDepth | %d |%n", maxDepth);
-		System.err.println();
-		System.err.println("* Memory");
-		System.err.printf("| Type | Size | Load | Store |%n");
-		System.err.printf("| Data | %,d | %,d | %,d |%n", dataSize, dataLoad, dataStore);
-		System.err.printf("| Stack | %,d | %,d | %,d |%n", stackSize, stackLoad, stackStore);
-		System.err.printf("| Heap | %,d | %,d | %,d |%n", heapSize, heapLoad, heapStore);
-		System.err.println();
-		System.err.println("* ICache");
-		System.err.printf("| Total | %,d |%n", iHit + iMiss);
-		System.err.printf("| Hit | %,d (%.3f) |%n", iHit, 100.0 * iHit / (iHit + iMiss));
-		System.err.printf("| Miss | %,d (%.3f) |%n", iMiss, 100.0 * iMiss / (iHit + iMiss));
-		System.err.println();
-		System.err.println("* DCache");
-		System.err.printf("| Total | %,d |%n", dHit + dMiss);
-		System.err.printf("| Hit | %,d (%.3f) |%n", dHit, 100.0 * dHit / (dHit + dMiss));
-		System.err.printf("| Miss | %,d (%.3f) |%n", dMiss, 100.0 * dMiss / (dHit + dMiss));
-		System.err.println();
-		System.err.println("* BranchPrediction");
-		System.err.printf("| Total | %,d |%n", bpHit + bpMiss);
-		System.err.printf("| Hit | %,d (%.3f) |%n", bpHit, 100.0 * bpHit / (bpHit + bpMiss));
-		System.err.printf("| Miss | %,d (%.3f) |%n", bpMiss, 100.0 * bpMiss / (bpHit + bpMiss));
-		System.err.println();
+		System.out.println();
+		System.out.println("* CallStack");
+		System.out.printf("| MaxDepth | %d |%n", maxDepth);
+		System.out.println();
+		System.out.println("* Memory");
+		System.out.printf("| Type | Size | Load | Store |%n");
+		System.out.printf("| Data | %,d | %,d | %,d |%n", dataSize, dataLoad, dataStore);
+		System.out.printf("| Stack | %,d | %,d | %,d |%n", stackSize, stackLoad, stackStore);
+		System.out.printf("| Heap | %,d | %,d | %,d |%n", heapSize, heapLoad, heapStore);
+		System.out.println();
+		System.out.println("* ICache");
+		System.out.printf("| Total | %,d |%n", iHit + iMiss);
+		System.out.printf("| Hit | %,d (%.3f) |%n", iHit, 100.0 * iHit / (iHit + iMiss));
+		System.out.printf("| Miss | %,d (%.3f) |%n", iMiss, 100.0 * iMiss / (iHit + iMiss));
+		System.out.println();
+		System.out.println("* DCache");
+		System.out.printf("| Total | %,d |%n", dHit + dMiss);
+		System.out.printf("| Hit | %,d (%.3f) |%n", dHit, 100.0 * dHit / (dHit + dMiss));
+		System.out.printf("| Miss | %,d (%.3f) |%n", dMiss, 100.0 * dMiss / (dHit + dMiss));
+		System.out.println();
+		System.out.println("* BranchPrediction");
+		System.out.printf("| Total | %,d |%n", bpHit + bpMiss);
+		System.out.printf("| Hit | %,d (%.3f) |%n", bpHit, 100.0 * bpHit / (bpHit + bpMiss));
+		System.out.printf("| Miss | %,d (%.3f) |%n", bpMiss, 100.0 * bpMiss / (bpHit + bpMiss));
+		System.out.println();
 	}
 	
 	//Debug
@@ -524,10 +623,10 @@ public class SuperScalar extends CPU {
 		
 		protected void step(int ope, int opecode, int rs, int rt, int rd, int imm) {
 			if (opecode == 060 && rs == 1) { //debug_int
-				System.err.printf("%s(%d)%n", toHex(regs[rt]), regs[rt]);
+				System.out.printf("%s(%d)%n", toHex(regs[rt]), regs[rt]);
 				changePC(pc + 1);
 			} else if (opecode == 060 && rs == 2) { //debug_float
-				System.err.printf("%.6E%n", itof(regs[rt]));
+				System.out.printf("%.6E%n", itof(regs[rt]));
 				changePC(pc + 1);
 			} else if (opecode == 060 && rs == 3) { //break
 				changePC(pc + 1);
@@ -536,6 +635,15 @@ public class SuperScalar extends CPU {
 				super.step(ope, opecode, rs, rt, rd, imm);
 			}
 		}
+	}
+	
+	//NoStat
+	protected static class NoStat extends SuperScalar {
+		
+		protected Data[] getData() {
+			return new Data[0];
+		}
+		
 	}
 	
 	//FPU

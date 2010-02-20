@@ -5,6 +5,7 @@ import static util.Utils.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
+import java.util.*;
 import javax.swing.*;
 import javax.swing.table.*;
 import sim.*;
@@ -88,14 +89,17 @@ public abstract class CPU {
 		this.prog = prog;
 		this.in = in;
 		this.out = out;
+		progSize = prog.ss.length;
 		pc = 0;
 		regs = new int[REGISTERSIZE];
 		mems = new int[MEMORYSIZE];
-		for (int i = 0; i < prog.ss.length; i++) {
+		for (int i = 0; i < progSize; i++) {
 			mems[i] = prog.ss[i].binary;
 		}
-		counts = new long[prog.ss.length + 1];
-		clocks = new long[prog.ss.length + 1];
+		data = getData();
+		for (Data d : data) {
+			if (d instanceof InstructionData) count = d;
+		}
 		init();
 	}
 	
@@ -107,12 +111,11 @@ public abstract class CPU {
 			throw new ExecuteException("Finished!");
 		}
 		int p = pc;
-		long c = clock;
+		for (int i = 0; i < data.length; i++) data[i].begin();
 		step(mems[pc]);
 		if (!halted) {
 			instruction++;
-			counts[p]++;
-			clocks[p] += clock - c;
+			for (int i = 0; i < data.length; i++) data[i].end(p);
 		}
 	}
 	
@@ -121,10 +124,78 @@ public abstract class CPU {
 	}
 	
 	protected void changePC(int newPC) {
-		if (newPC < 0 || newPC >= prog.ss.length) {
+		if (newPC < 0 || newPC >= progSize) {
 			throw new ExecuteException(String.format("IllegalPC: %d", pc));
 		}
 		pc = newPC;
+	}
+	
+	//Data
+	protected Data count;
+	protected Data[] data;
+	
+	protected Data[] getData() {
+		return new Data[] {new InstructionData(), new ClockData()};
+	}
+	
+	protected abstract class Data {
+		
+		protected String name;
+		protected long[] data;
+		protected long[] sum;
+		
+		protected Data(String name) {
+			this.name = name;
+			data = new long[progSize];
+			sum = new long[prog.names.length];
+		}
+		
+		protected void calcSum() {
+			Arrays.fill(sum, 0);
+			long[] total = new long[progSize + 1];
+			for (int i = 0; i < progSize; i++) total[i + 1] = total[i] + data[i];
+			for (int i = 0; i < prog.ids.length; i++) {
+				sum[prog.ids[i]] += total[prog.end[i]] - total[prog.begin[i]];
+			}
+		}
+		
+		protected abstract void begin();
+		
+		protected abstract void end(int pc);
+		
+	}
+	
+	protected class InstructionData extends Data {
+		
+		protected InstructionData() {
+			super("Instructions");
+		}
+		
+		protected void begin() {
+		}
+		
+		protected void end(int pc) {
+			data[pc]++;
+		}
+		
+	}
+	
+	protected class ClockData extends Data {
+		
+		private long c;
+		
+		protected ClockData() {
+			super("Clocks");
+		}
+		
+		protected void begin() {
+			c = clock;
+		}
+		
+		protected void end(int pc) {
+			data[pc] += clock - c;
+		}
+		
 	}
 	
 	//Status
@@ -165,6 +236,7 @@ public abstract class CPU {
 	
 	//View
 	public String[] getViews() {
+		if (data.length == 0) return new String[] {"Register", "Memory"};
 		return new String[] {"Source", "Register", "Memory", "Stat"};
 	}
 	
@@ -364,25 +436,28 @@ public abstract class CPU {
 	
 	//Source
 	protected Program prog;
-	protected long[] counts;
-	protected long[] clocks;
+	protected int progSize;
 	
 	protected class SourceView extends SimView {
 		
 		protected boolean trackingPC = true;
 		protected DefaultTableModel tableModel;
 		protected JTable table;
-		protected String[] label = {"Line", "PC", "", "Count", "Clocks"};
-		protected String[][] data = new String[prog.lines.length][5];
+		protected String[] label = {"Line", "PC", "", "", ""};
+		protected String[][] field = new String[prog.lines.length][5];
+		protected int data1 = 0, data2 = 1 % data.length;
 		
 		protected SourceView() {
 			super("Source");
 			for (int i = 0; i < prog.lines.length; i++) {
-				data[i][0] = "" + (i + 1);
-				data[i][1] = "";
-				data[i][2] = prog.lines[i];
-				data[i][3] = "";
-				data[i][4] = "";
+				field[i][0] = "" + (i + 1);
+				field[i][1] = "";
+				field[i][2] = prog.lines[i];
+				field[i][3] = "";
+				field[i][4] = "";
+			}
+			for (int i = 0; i < progSize; i++) {
+				field[prog.ss[i].lineID][1] = "" + i;
 			}
 			tableModel = new DefaultTableModel();
 			table = new JTable(tableModel);
@@ -402,18 +477,47 @@ public abstract class CPU {
 			});
 			table.setDefaultEditor(Object.class, null);
 			table.getTableHeader().setReorderingAllowed(false);
+			table.getTableHeader().addMouseListener(new MouseAdapter() {
+				public void mousePressed(MouseEvent e) {
+					if (table.getTableHeader().columnAtPoint(e.getPoint()) == 3) {
+						data1 = (data1 + 1) % data.length;
+						refresh();
+					} else if (table.getTableHeader().columnAtPoint(e.getPoint()) == 4) {
+						data2 = (data2 + 1) % data.length;
+						refresh();
+					}
+				}
+			});
+			add(new JButton(new AbstractAction("Output") {
+				public void actionPerformed(ActionEvent e) {
+					String[] ss = prog.lines.clone();
+					for (int i = 0; i < progSize; i++) if (count.data[i] > 0) {
+						StringBuilder s = new StringBuilder(String.format("%-40s# ", ss[prog.ss[i].lineID]));
+						for (Data d : data) s.append(String.format("| %,10d ", d.data[i]));
+						s.append('|');
+						ss[prog.ss[i].lineID] = s.toString();
+					}
+					for (String s : ss) System.out.println(s);
+					StringBuilder sb = new StringBuilder(String.format("%-40s# ", ""));
+					for (Data d : data) sb.append(String.format("| %-10s ", d.name));
+					sb.append('|');
+					System.out.println(sb);
+					System.out.println();
+				}
+			}), BorderLayout.SOUTH);
 			add(new JScrollPane(table), BorderLayout.CENTER);
 			setPreferredSize(new Dimension(600, 400));
 			pack();
 		}
 		
 		public void refresh() {
-			for (int i = 0; i < prog.ss.length; i++) {
-				data[prog.ss[i].lineID][1] = "" + i;
-				data[prog.ss[i].lineID][3] = String.format("%,10d", counts[i]);
-				data[prog.ss[i].lineID][4] = String.format("%,10d", clocks[i]);
+			label[3] = data[data1].name;
+			label[4] = data[data2].name;
+			for (int i = 0; i < progSize; i++) {
+				field[prog.ss[i].lineID][3] = String.format("%,10d", data[data1].data[i]);
+				field[prog.ss[i].lineID][4] = String.format("%,10d", data[data2].data[i]);
 			}
-			tableModel.setDataVector(data, label);
+			tableModel.setDataVector(field, label);
 			table.getColumnModel().getColumn(0).setMinWidth(50);
 			table.getColumnModel().getColumn(0).setMaxWidth(50);
 			table.getColumnModel().getColumn(1).setMinWidth(50);
@@ -435,23 +539,51 @@ public abstract class CPU {
 		
 		protected DefaultTableModel tableModel;
 		protected JTable table;
-		protected String[] label = {"Name", "Count", "Total", "Clocks"};
-		protected String[][] data = new String[prog.names.length][4];
+		protected String[] label = {"Name", "Count", "", ""};
+		protected String[][] field = new String[prog.names.length][4];
+		protected int data1 = 0, data2 = 1 % data.length;
 		
 		protected StatView() {
 			super("Stat");
+			for (int i = 0; i < prog.names.length; i++) {
+				field[i][0] = prog.names[i];
+			}
 			tableModel = new DefaultTableModel();
 			table = new JTable(tableModel);
 			table.setFont(FONT);
 			table.setDefaultEditor(Object.class, null);
 			table.getTableHeader().setReorderingAllowed(false);
+			table.getTableHeader().addMouseListener(new MouseAdapter() {
+				public void mousePressed(MouseEvent e) {
+					if (table.getTableHeader().columnAtPoint(e.getPoint()) == 2) {
+						data1 = (data1 + 1) % data.length;
+						refresh();
+					} else if (table.getTableHeader().columnAtPoint(e.getPoint()) == 3) {
+						data2 = (data2 + 1) % data.length;
+						refresh();
+					}
+				}
+			});
 			add(new JButton(new AbstractAction("Output") {
 				public void actionPerformed(ActionEvent e) {
-					System.err.println("* ブロック実行数");
-					System.err.printf("| %s | %s | %s | %s |%n", label[0], label[1], label[2], label[3]);
+					for (Data d : data) d.calcSum();
+					String[][] ss = new String[prog.names.length + 1][2 + data.length];
+					ss[0][0] = label[0];
+					ss[0][1] = label[1];
+					for (int i = 0; i < data.length; i++) ss[0][2 + i] = data[i].name;
 					for (int i = 0; i < prog.names.length; i++) {
-						System.err.printf("| %s | %s | %s | %s |%n", data[i][0].trim(), data[i][1].trim(), data[i][2].trim(), data[i][3].trim());
+						ss[i + 1][0] = field[i][0].trim();
+						ss[i + 1][1] = field[i][1].trim();
+						for (int j = 0; j < data.length; j++) ss[i + 1][2 + j] = String.format("%,d", data[j].sum[i]);
 					}
+					System.out.println("* BlockCount");
+					for (String[] s : ss) {
+						for (int i = 0; i < s.length; i++) {
+							System.out.print("| " + s[i] + " ");
+						}
+						System.out.println("|");
+					}
+					System.out.println();
 				}
 			}), BorderLayout.SOUTH);
 			add(new JScrollPane(table), BorderLayout.CENTER);
@@ -460,27 +592,20 @@ public abstract class CPU {
 		}
 		
 		public void refresh() {
-			long[] sum = new long[prog.ss.length + 1];
-			long[] sumClocks = new long[prog.ss.length + 1];
-			long[] count = new long[prog.names.length];
-			long[] total = new long[prog.names.length];
-			long[] totalClocks = new long[prog.names.length];
-			for (int i = 0; i < prog.ss.length; i++) {
-				sum[i + 1] = sum[i] + counts[i];
-				sumClocks[i + 1] = sumClocks[i] + clocks[i];
-			}
+			label[2] = data[data1].name;
+			label[3] = data[data2].name;
+			data[data1].calcSum();
+			data[data2].calcSum();
+			long[] cs = new long[prog.names.length];
 			for (int i = 0; i < prog.ids.length; i++) {
-				count[prog.ids[i]] += counts[prog.begin[i]];
-				total[prog.ids[i]] += sum[prog.end[i]] - sum[prog.begin[i]];
-				totalClocks[prog.ids[i]] += sumClocks[prog.end[i]] - sumClocks[prog.begin[i]];
+				cs[prog.ids[i]] += count.data[prog.begin[i]];
 			}
 			for (int i = 0; i < prog.names.length; i++) {
-				data[i][0] = prog.names[i];
-				data[i][1] = String.format("%,14d", count[i]);
-				data[i][2] = String.format("%,14d", total[i]);
-				data[i][3] = String.format("%,14d", totalClocks[i]);
+				field[i][1] = String.format("%,14d", cs[i]);
+				field[i][2] = String.format("%,14d", data[data1].sum[i]);
+				field[i][3] = String.format("%,14d", data[data2].sum[i]);
 			}
-			tableModel.setDataVector(data, label);
+			tableModel.setDataVector(field, label);
 			table.getColumnModel().getColumn(0).setMinWidth(200);
 			table.getColumnModel().getColumn(1).setMinWidth(120);
 			table.getColumnModel().getColumn(2).setMinWidth(120);
