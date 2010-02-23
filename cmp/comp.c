@@ -10,7 +10,10 @@
 #define HEADERSIZE (sizeof(HEADERSTR)-1)
 #define BODYSIZE (SIZEX*SIZEY)
 
-#define THREATHOLD 2
+#define THREATHOLD 0
+
+//F‚ð””{‚É‚µ‚Ä‹­’²•\Ž¦
+#define DIFFCOLORMUL 100
 
 struct rgb{
 	int r;
@@ -97,14 +100,17 @@ int main(int argc,char* argv[]){
 			if(c.r>THREATHOLD){
 				printf("DIFF:red value over the threathold at (%d,%d) (%d,%d,%d) and (%d,%d,%d)\n",x,y,br[y][x].r,br[y][x].g,br[y][x].b,bt[y][x].r,bt[y][x].g,bt[y][x].b);
 			}
+			c.r=min(DIFFCOLORMUL*c.r,255);
 			c.g=(unsigned char)abs(((int)br[y][x].g)-((int)bt[y][x].g));
 			if(c.r>THREATHOLD){
 				printf("DIFF:green value over the threathold at (%d,%d) (%d,%d,%d) and (%d,%d,%d)\n",x,y,br[y][x].r,br[y][x].g,br[y][x].b,bt[y][x].r,bt[y][x].g,bt[y][x].b);
 			}
+			c.g=min(DIFFCOLORMUL*c.g,255);
 			c.b=(unsigned char)abs(((int)br[y][x].b)-((int)bt[y][x].b));
 			if(c.r>THREATHOLD){
 				printf("DIFF:blue value over the threathold at (%d,%d) (%d,%d,%d) and (%d,%d,%d)\n",x,y,br[y][x].r,br[y][x].g,br[y][x].b,bt[y][x].r,bt[y][x].g,bt[y][x].b);
 			}
+			c.g=min(DIFFCOLORMUL*c.g,255);
 			bo[y][x]=c;
 		}
 	}
