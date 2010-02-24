@@ -275,9 +275,10 @@ public abstract class CPU {
 	}
 	
 	protected final int write(int i) {
+		writeByteNum++;
+		System.err.printf("\rwrite %d bytes", writeByteNum);
 		if (out == null) return 0;
 		try {
-			writeByteNum++;
 			out.write(i & 0xff);
 			out.flush();
 			return 0;
@@ -488,8 +489,10 @@ public abstract class CPU {
 					}
 				}
 			});
-			add(new JButton(new AbstractAction("Output") {
+			add(new JButton(new AbstractAction("Copy") {
 				public void actionPerformed(ActionEvent e) {
+					StringWriter buf = new StringWriter();
+					PrintWriter out = new PrintWriter(buf);
 					String[] ss = prog.lines.clone();
 					for (int i = 0; i < progSize; i++) if (count.data[i] > 0) {
 						StringBuilder s = new StringBuilder(String.format("%-40s# ", ss[prog.ss[i].lineID]));
@@ -497,12 +500,13 @@ public abstract class CPU {
 						s.append('|');
 						ss[prog.ss[i].lineID] = s.toString();
 					}
-					for (String s : ss) System.out.println(s);
+					for (String s : ss) out.println(s);
 					StringBuilder sb = new StringBuilder(String.format("%-40s# ", ""));
 					for (Data d : data) sb.append(String.format("| %-10s ", d.name));
 					sb.append('|');
-					System.out.println(sb);
-					System.out.println();
+					out.println(sb);
+					out.close();
+					copyToClipboard(buf.getBuffer().toString());
 				}
 			}), BorderLayout.SOUTH);
 			add(new JScrollPane(table), BorderLayout.CENTER);

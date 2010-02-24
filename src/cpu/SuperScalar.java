@@ -16,6 +16,10 @@ public class SuperScalar extends CPU {
 		super(100e6, 1 << 20, 1 << 6);
 	}
 	
+	public SuperScalar(double hz) {
+		super(hz, 1 << 20, 1 << 6);
+	}
+	
 	//Asm
 	protected static int typeR(int op, int rs, int rt, int rd) {
 		return op << 26 | rs << 20 | rt << 14 | rd << 8;
@@ -85,7 +89,7 @@ public class SuperScalar extends CPU {
 	}
 	
 	//Sim
-	protected final int MAXDEPTH = 16;
+	protected static final int MAXDEPTH = 16;
 	protected int cond;
 	protected int callDepth;
 	protected int maxDepth;
@@ -339,8 +343,8 @@ public class SuperScalar extends CPU {
 	}
 	
 	//Cache
-	protected final int ICACHESIZE = 1 << 8;
-	protected final int DCACHESIZE = 1 << 11;
+	protected static final int ICACHESIZE = 1 << 8;
+	protected static final int DCACHESIZE = 1 << 11;
 	protected int[] icache;
 	protected int[] dcache;
 	
@@ -367,7 +371,7 @@ public class SuperScalar extends CPU {
 	}
 	
 	//BranchPrediction
-	protected final int BP_TABLE_SIZE = 1 << 13;
+	protected static final int BP_TABLE_SIZE = 1 << 13;
 	protected int[] bpTable;
 	protected int bpHistory;
 	
@@ -564,6 +568,8 @@ public class SuperScalar extends CPU {
 	protected long bpHit, bpMiss;
 	
 	protected void printStat() {
+		System.err.println();
+		System.err.flush();
 		System.out.printf("コード長:%d%n", progSize);
 		System.out.println();
 		System.out.println("* Time");
@@ -644,6 +650,105 @@ public class SuperScalar extends CPU {
 			return new Data[0];
 		}
 		
+	}
+	
+	//HyperScalar
+	protected static class HyperScalar extends SuperScalar {
+		public HyperScalar() {
+			super(150e6);
+		}
+		
+		static {
+			delay[000] = 0; //li
+			delay[010] = 1; //add
+			delay[001] = 0; //addi
+			delay[011] = 1; //sub
+			delay[002] = 1; //sll
+			delay[020] = 3; //fadd
+			delay[021] = 3; //fsub
+			delay[022] = 3; //fmul
+			delay[023] = 3; //finv
+			delay[024] = 3; //fsqrt
+			delay[006] = 0; //fabs
+			delay[007] = 0; //fneg
+			delay[030] = 1; //load
+			delay[031] = 1; //loadr
+			delay[050] = 1; //read
+			delay[051] = 1; //write
+		}
+		
+		protected void init() {
+			super.init();
+			dcache = new int[DCACHESIZE];
+			fill(dcache, -1);
+		}
+		
+		//Cache
+		protected static final int DCACHESIZE = 1 << 14;
+		protected int[] dcache;
+		
+		protected void icache(int a) {
+		}
+		
+		protected void dcache(int a) {
+			if (dcache[a & (DCACHESIZE - 1)] != a) {
+				dcache[a & (DCACHESIZE - 1)] = a;
+				clock += 6;
+				for (int i = 0; i < 4; i++) dcache[(a + i) & (DCACHESIZE - 1)] = a + i;
+				dMiss++;
+			} else {
+				dHit++;
+			}
+		}
+		
+		protected Data[] getData() {
+			ArrayList<Data> list = new ArrayList<Data>(asList(super.getData()));
+			ArrayList<Data> list2 = new ArrayList<Data>();
+			for (Data d : list) if (!(d instanceof ICacheData)) {
+				list2.add(d);
+			}
+			return list2.toArray(new Data[0]);
+		}
+		
+		protected void printStat() {
+			System.err.println();
+			System.err.flush();
+			System.out.printf("コード長:%d%n", progSize);
+			System.out.println();
+			System.out.println("* Time");
+			System.out.printf("| Total | %.3f |%n", clock / Hz);
+			System.out.printf("| Instruction | %.3f |%n", instruction / Hz);
+			System.out.printf("| Stall | %.3f |%n", stalled / Hz);
+			System.out.printf("| DCacheMiss | %.3f |%n", dMiss * 6 / Hz);
+			System.out.printf("| BranchMiss | %.3f |%n", bpMiss * 2 / Hz);
+			System.out.println();
+			System.out.println("* InstructionCount");
+			System.out.println("| Name | Count | Clocks | CPI |");
+			System.out.printf("| Total | %,d | %,d | %.3f |%n", instruction, clock, (double)clock / instruction);
+			for (int i = 0; i < NAME.length; i++) if (NAME[i] != null) {
+				System.out.printf("| %s | %,d (%.3f) | %,d (%.3f) | %.3f |%n", NAME[i], countOpe[i], 100.0 * countOpe[i] / instruction, clockOpe[i], 100.0 * clockOpe[i] / clock, countOpe[i] == 0 ? 0 : (double)clockOpe[i] / countOpe[i]);
+			}
+			System.out.println();
+			System.out.println("* CallStack");
+			System.out.printf("| MaxDepth | %d |%n", maxDepth);
+			System.out.println();
+			System.out.println("* Memory");
+			System.out.printf("| Type | Size | Load | Store |%n");
+			System.out.printf("| Data | %,d | %,d | %,d |%n", dataSize, dataLoad, dataStore);
+			System.out.printf("| Stack | %,d | %,d | %,d |%n", stackSize, stackLoad, stackStore);
+			System.out.printf("| Heap | %,d | %,d | %,d |%n", heapSize, heapLoad, heapStore);
+			System.out.println();
+			System.out.println("* DCache");
+			System.out.printf("| Total | %,d |%n", dHit + dMiss);
+			System.out.printf("| Hit | %,d (%.3f) |%n", dHit, 100.0 * dHit / (dHit + dMiss));
+			System.out.printf("| Miss | %,d (%.3f) |%n", dMiss, 100.0 * dMiss / (dHit + dMiss));
+			System.out.println();
+			System.out.println("* BranchPrediction");
+			System.out.printf("| Total | %,d |%n", bpHit + bpMiss);
+			System.out.printf("| Hit | %,d (%.3f) |%n", bpHit, 100.0 * bpHit / (bpHit + bpMiss));
+			System.out.printf("| Miss | %,d (%.3f) |%n", bpMiss, 100.0 * bpMiss / (bpHit + bpMiss));
+			System.out.println();
+		}
 	}
 	
 	//FPU

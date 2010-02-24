@@ -1,6 +1,8 @@
 package util;
 
 import static java.util.Arrays.*;
+import java.awt.datatransfer.*;
+import java.awt.Toolkit;
 import java.util.*;
 
 public class Utils {
@@ -84,6 +86,13 @@ public class Utils {
 			sb.append(sep).append(ss[i]);
 		}
 		return sb.toString();
+	}
+	
+	// 文字列をクリップボードにコピー
+	public static void copyToClipboard(String s) {
+		Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+		StringSelection select = new StringSelection(s);
+		clipboard.setContents(select, select);
 	}
 	
 	public static void debug(Object...os) {
