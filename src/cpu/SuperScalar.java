@@ -13,7 +13,7 @@ import asm.*;
 public class SuperScalar extends CPU {
 	
 	public SuperScalar() {
-		super(100e6, 1 << 20, 1 << 6);
+		super(150e6, 1 << 20, 1 << 6);
 	}
 	
 	public SuperScalar(double hz) {
@@ -28,6 +28,77 @@ public class SuperScalar extends CPU {
 	protected static int typeI(int op, int rs, int rt, int imm) {
 		return op << 26 | rs << 20 | rt << 14 | imm;
 	}
+	
+//	int liMax, addiMin, addiMax, cmpiMin, cmpiMax, loadMin, loadMax, storeMin, storeMax;
+//	
+//	protected int getBinary(String op, Parser p) {
+//		if (op.equals("li")) {
+//			reg(p); int v = p.nextImm(); if (v != 4096) liMax = max(liMax, v);
+//			p.init(); p.next();
+//			return typeI(000, 0, reg(p), imm(p, 14, false));
+//		} else if (op.equals("add")) {
+//			return typeR(010, reg(p), reg(p), reg(p));
+//		} else if (op.equals("addi")) {
+//			reg(p); reg(p); int v = p.nextImm(); addiMin = min(addiMin, v); addiMax = max(addiMax, v);
+//			p.init(); p.next();
+//			return typeI(001, reg(p), reg(p), imm(p, 14, true));
+//		} else if (op.equals("sub")) {
+//			return typeR(011, reg(p), reg(p), reg(p));
+//		} else if (op.equals("sll")) {
+//			return typeI(002, reg(p), reg(p), imm(p, 5, false));
+//		} else if (op.equals("cmp")) {
+//			return typeI(012, reg(p), reg(p), 0);
+//		} else if (op.equals("cmpi")) {
+//			reg(p); int v = p.nextImm(); cmpiMin = min(cmpiMin, v); cmpiMax = max(cmpiMax, v);
+//			p.init(); p.next();
+//			return typeI(003, reg(p), 0, imm(p, 14, true));
+//		} else if (op.equals("fadd")) {
+//			return typeR(020, reg(p), reg(p), reg(p));
+//		} else if (op.equals("fsub")) {
+//			return typeR(021, reg(p), reg(p), reg(p));
+//		} else if (op.equals("fmul")) {
+//			return typeR(022, reg(p), reg(p), reg(p));
+//		} else if (op.equals("finv")) {
+//			return typeR(023, reg(p), 0, reg(p));
+//		} else if (op.equals("fsqrt")) {
+//			return typeR(024, reg(p), 0, reg(p));
+//		} else if (op.equals("fcmp")) {
+//			return typeI(025, reg(p), reg(p), 0);
+//		} else if (op.equals("fabs")) {
+//			return typeR(006, reg(p), 0, reg(p));
+//		} else if (op.equals("fneg")) {
+//			return typeR(007, reg(p), 0, reg(p));
+//		} else if (op.equals("load")) {
+//			reg(p); reg(p); int v = p.nextImm(); loadMin = min(loadMin, v); loadMax = max(loadMax, v);
+//			p.init(); p.next();
+//			return typeI(030, reg(p), reg(p), imm(p, 14, true));
+//		} else if (op.equals("loadr")) {
+//			return typeR(031, reg(p), reg(p), reg(p));
+//		} else if (op.equals("store")) {
+//			reg(p); reg(p); int v = p.nextImm(); storeMin = min(storeMin, v); storeMax = max(storeMax, v);
+//			p.init(); p.next();
+//			return typeI(032, reg(p), reg(p), imm(p, 14, true));
+//		} else if (op.equals("read")) {
+//			return typeI(050, 0, reg(p), 1);
+//		} else if (op.equals("write")) {
+//			return typeI(051, reg(p), reg(p), 1);
+//		} else if (op.equals("ledout")) {
+//			return typeI(052, reg(p), 0, 0);
+//		} else if (op.equals("nop")) {
+//			return typeI(060, 0, 0, 0);
+//		} else if (op.equals("halt")) {
+//			return typeI(061, 0, 0, 0);
+//		} else if (op.equals("mov")) {
+//			return typeI(005, reg(p), reg(p), 0);
+//		} else if (op.equals("jmp")) {
+//			return typeI(070, imm(p, 3, false), 0, imm(p, 14, false));
+//		} else if (op.equals("call")) {
+//			return typeI(071, 0, 0, imm(p, 14, false));
+//		} else if (op.equals("ret")) {
+//			return typeI(072, 0, 0, 0);
+//		}
+//		return super.getBinary(op, p);
+//	}
 	
 	protected int getBinary(String op, Parser p) {
 		if (op.equals("li")) {
@@ -96,17 +167,33 @@ public class SuperScalar extends CPU {
 	protected int[] callStack;
 	protected long[] canUse;
 	protected static final int[] delay = new int[64];
+/*
+	static {
+		delay[020] = 2; //fadd
+		delay[021] = 2; //fsub
+		delay[022] = 2; //fmul
+		delay[023] = 2; //finv
+		delay[024] = 2; //fsqrt
+		delay[030] = 1; //load
+		delay[031] = 1; //loadr
+		delay[050] = 1; //read
+		delay[051] = 1; //write
+	}
+*/
 	static {
 		delay[000] = 1; //li
 		delay[010] = 1; //add
 		delay[001] = 1; //addi
 		delay[011] = 1; //sub
 		delay[002] = 1; //sll
+		delay[012] = 1; //cmp
+		delay[003] = 1; //cmpi
 		delay[020] = 4; //fadd
 		delay[021] = 4; //fsub
 		delay[022] = 4; //fmul
 		delay[023] = 4; //finv
 		delay[024] = 4; //fsqrt
+		delay[025] = 1; //fcmp
 		delay[006] = 1; //fabs
 		delay[007] = 1; //fneg
 		delay[030] = 2; //load
@@ -117,11 +204,12 @@ public class SuperScalar extends CPU {
 	
 	protected void init() {
 		super.init();
+//		util.Utils.debug(liMax, addiMin, addiMax, cmpiMin, cmpiMax, loadMin, loadMax, storeMin, storeMax);
 		cond = 0;
 		callDepth = 0;
 		maxDepth = 0;
 		callStack = new int[MAXDEPTH];
-		canUse = new long[REGISTERSIZE];
+		canUse = new long[REGISTERSIZE + 1];
 		countOpe = new long[64];
 		clockOpe = new long[64];
 		icache = new int[ICACHESIZE];
@@ -211,11 +299,11 @@ public class SuperScalar extends CPU {
 			regs[rt] = regs[rs] << imm;
 			changePC(pc + 1);
 		} else if (opecode == 012) { //cmp
-			stall(opecode, -1, rs, rt);
+			stall(opecode, REGISTERSIZE, rs, rt);
 			cond = cmp(regs[rs], regs[rt]);
 			changePC(pc + 1);
 		} else if (opecode == 003) { //cmpi
-			stall(opecode, -1, rs);
+			stall(opecode, REGISTERSIZE, rs);
 			cond = cmp(regs[rs], signExt(imm, 14));
 			changePC(pc + 1);
 		} else if (opecode == 020) { //fadd
@@ -239,7 +327,7 @@ public class SuperScalar extends CPU {
 			regs[rd] = fsqrt(regs[rs]);
 			changePC(pc + 1);
 		} else if (opecode == 025) { //fcmp
-			stall(opecode, -1, rs, rt);
+			stall(opecode, REGISTERSIZE, rs, rt);
 			cond = fcmp(regs[rs], regs[rt]);
 			changePC(pc + 1);
 		} else if (opecode == 006) { //fabs
@@ -286,7 +374,7 @@ public class SuperScalar extends CPU {
 			regs[rt] = regs[rs];
 			changePC(pc + 1);
 		} else if (opecode == 070) { //jmp
-			stall(opecode, -1);
+			stall(opecode, -1, REGISTERSIZE);
 			branchPredict((cond & rs) == 0 ? 1 : 0);
 			if ((cond & rs) == 0) {
 				changePC(imm);
@@ -650,105 +738,6 @@ public class SuperScalar extends CPU {
 			return new Data[0];
 		}
 		
-	}
-	
-	//HyperScalar
-	protected static class HyperScalar extends SuperScalar {
-		public HyperScalar() {
-			super(150e6);
-		}
-		
-		static {
-			delay[000] = 0; //li
-			delay[010] = 1; //add
-			delay[001] = 0; //addi
-			delay[011] = 1; //sub
-			delay[002] = 1; //sll
-			delay[020] = 3; //fadd
-			delay[021] = 3; //fsub
-			delay[022] = 3; //fmul
-			delay[023] = 3; //finv
-			delay[024] = 3; //fsqrt
-			delay[006] = 0; //fabs
-			delay[007] = 0; //fneg
-			delay[030] = 1; //load
-			delay[031] = 1; //loadr
-			delay[050] = 1; //read
-			delay[051] = 1; //write
-		}
-		
-		protected void init() {
-			super.init();
-			dcache = new int[DCACHESIZE];
-			fill(dcache, -1);
-		}
-		
-		//Cache
-		protected static final int DCACHESIZE = 1 << 14;
-		protected int[] dcache;
-		
-		protected void icache(int a) {
-		}
-		
-		protected void dcache(int a) {
-			if (dcache[a & (DCACHESIZE - 1)] != a) {
-				dcache[a & (DCACHESIZE - 1)] = a;
-				clock += 6;
-				for (int i = 0; i < 4; i++) dcache[(a + i) & (DCACHESIZE - 1)] = a + i;
-				dMiss++;
-			} else {
-				dHit++;
-			}
-		}
-		
-		protected Data[] getData() {
-			ArrayList<Data> list = new ArrayList<Data>(asList(super.getData()));
-			ArrayList<Data> list2 = new ArrayList<Data>();
-			for (Data d : list) if (!(d instanceof ICacheData)) {
-				list2.add(d);
-			}
-			return list2.toArray(new Data[0]);
-		}
-		
-		protected void printStat() {
-			System.err.println();
-			System.err.flush();
-			System.out.printf("コード長:%d%n", progSize);
-			System.out.println();
-			System.out.println("* Time");
-			System.out.printf("| Total | %.3f |%n", clock / Hz);
-			System.out.printf("| Instruction | %.3f |%n", instruction / Hz);
-			System.out.printf("| Stall | %.3f |%n", stalled / Hz);
-			System.out.printf("| DCacheMiss | %.3f |%n", dMiss * 6 / Hz);
-			System.out.printf("| BranchMiss | %.3f |%n", bpMiss * 2 / Hz);
-			System.out.println();
-			System.out.println("* InstructionCount");
-			System.out.println("| Name | Count | Clocks | CPI |");
-			System.out.printf("| Total | %,d | %,d | %.3f |%n", instruction, clock, (double)clock / instruction);
-			for (int i = 0; i < NAME.length; i++) if (NAME[i] != null) {
-				System.out.printf("| %s | %,d (%.3f) | %,d (%.3f) | %.3f |%n", NAME[i], countOpe[i], 100.0 * countOpe[i] / instruction, clockOpe[i], 100.0 * clockOpe[i] / clock, countOpe[i] == 0 ? 0 : (double)clockOpe[i] / countOpe[i]);
-			}
-			System.out.println();
-			System.out.println("* CallStack");
-			System.out.printf("| MaxDepth | %d |%n", maxDepth);
-			System.out.println();
-			System.out.println("* Memory");
-			System.out.printf("| Type | Size | Load | Store |%n");
-			System.out.printf("| Data | %,d | %,d | %,d |%n", dataSize, dataLoad, dataStore);
-			System.out.printf("| Stack | %,d | %,d | %,d |%n", stackSize, stackLoad, stackStore);
-			System.out.printf("| Heap | %,d | %,d | %,d |%n", heapSize, heapLoad, heapStore);
-			System.out.println();
-			System.out.println("* DCache");
-			System.out.printf("| Total | %,d |%n", dHit + dMiss);
-			System.out.printf("| Hit | %,d (%.3f) |%n", dHit, 100.0 * dHit / (dHit + dMiss));
-			System.out.printf("| Miss | %,d (%.3f) |%n", dMiss, 100.0 * dMiss / (dHit + dMiss));
-			System.out.println();
-			System.out.println("* BranchPrediction");
-			System.out.printf("| Total | %,d |%n", bpHit + bpMiss);
-			System.out.printf("| Hit | %,d (%.3f) |%n", bpHit, 100.0 * bpHit / (bpHit + bpMiss));
-			System.out.printf("| Miss | %,d (%.3f) |%n", bpMiss, 100.0 * bpMiss / (bpHit + bpMiss));
-			System.out.println();
-		}
 	}
 	
 	//FPU
