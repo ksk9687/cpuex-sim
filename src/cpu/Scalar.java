@@ -5,7 +5,7 @@ import static util.Utils.*;
 import sim.*;
 import asm.*;
 
-public class Scalar extends CPU {
+public class Scalar extends CPU32 {
 	
 	public Scalar() {
 		super(50e6, 1 << 20, 1 << 5);
@@ -24,7 +24,8 @@ public class Scalar extends CPU {
 		return op << 26 | imm;
 	}
 	
-	protected int getBinary(String op, Parser p) {
+	@Override
+	protected long getBinary(String op, Parser p) {
 		if (op.equals("add")) {
 			return typeR(0, reg(p), reg(p), reg(p));
 		} else if (op.equals("addi")) {
@@ -83,6 +84,7 @@ public class Scalar extends CPU {
 		return fa > fb ? 4 : fa == fb ? 2 : 1;
 	}
 	
+	@Override
 	protected void init() {
 		super.init();
 		countOpe = new long[64];
@@ -97,7 +99,9 @@ public class Scalar extends CPU {
 		dmiss = 0;
 	}
 	
-	protected final void step(int ope) {
+	@Override
+	protected final void step(long _ope) {
+		int ope = (int)_ope;
 		int opecode = ope >>> 26;
 		int rs = ope >>> 21 & (REGISTERSIZE - 1);
 		int rt = ope >>> 16 & (REGISTERSIZE - 1);
@@ -259,7 +263,8 @@ public class Scalar extends CPU {
 	//Debug
 	protected static class Debug extends Scalar {
 		
-		protected int getBinary(String op, Parser p) {
+		@Override
+		protected long getBinary(String op, Parser p) {
 			if (op.equals("debug_int")) {
 				return typeI(63, reg(p), 0, 0);
 			} else if (op.equals("debug_float")) {
@@ -270,6 +275,7 @@ public class Scalar extends CPU {
 			return super.getBinary(op, p);
 		}
 		
+		@Override
 		protected void step(int ope, int opecode, int rs, int rt, int rd, int imm, int addr) {
 			if (opecode == 63) { //debug_int
 				System.out.printf("%s(%d)%n", toHex(regs[rs]), regs[rs]);

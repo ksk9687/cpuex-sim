@@ -92,6 +92,7 @@ public class Assembler {
 		List<Integer> begin = new ArrayList<Integer>();
 		List<Integer> end = new ArrayList<Integer>();
 		Statement[] ss = lex(lines);
+		for (int i = 0; i < cpu.OFFSET; i++) list.add(new Statement(-1, ""));
 		for (Statement s : ss) {
 			for (String label : s.labels) {
 				if (labels.containsKey(label)) {
@@ -177,39 +178,41 @@ public class Assembler {
 		}
 		int pc = 0;
 		for (Statement s : ss) {
-			replace(s.tokens, labels);
-			replace(s.tokens, "%pc", "" + pc);
-			try {
-				Parser p = new Parser(s.tokens);
-				String t = p.next();
-				if (t.equals(".int")) {
-					s.binary = p.nextImm();
-					p.end();
-				} else if (t.equals(".float")) {
-					try {
-						s.binary = ftoi(Float.parseFloat(s.str.substring(6).trim()));
-					} catch (NumberFormatException e) {
-						throw new ParseException();
-					}
-				} else if (!t.equals(".skip")) {
-					p = new Parser(s.tokens);
-					for (Define def : defs) if (def.from <= pc) {
+			if (s.lineID >= 0) {
+				replace(s.tokens, labels);
+				replace(s.tokens, "%pc", "" + pc);
+				try {
+					Parser p = new Parser(s.tokens);
+					String t = p.next();
+					if (t.equals(".int")) {
+						s.binary = p.nextImm();
+						p.end();
+					} else if (t.equals(".float")) {
 						try {
-							s.tokens = p.match(def.ss, def.st);
-							replace(s.tokens, "%pc", "" + pc);
-							p = new Parser(s.tokens);
-						} catch (ParseException e) {
-							p.init();
+							s.binary = ftoi(Float.parseFloat(s.str.substring(".float".length()).trim()));
+						} catch (NumberFormatException e) {
+							throw new ParseException();
+						}
+					} else if (!t.equals(".skip")) {
+						p = new Parser(s.tokens);
+						for (Define def : defs) if (def.from <= pc) {
+							try {
+								s.tokens = p.match(def.ss, def.st);
+								replace(s.tokens, "%pc", "" + pc);
+								p = new Parser(s.tokens);
+							} catch (ParseException e) {
+								p.init();
+							}
+						}
+						try {
+							s.binary = cpu.getBinary(new Parser(s.tokens));
+						} catch (AssembleException e) {
+							throw new AssembleException(s.createMessage(e.getMessage()));
 						}
 					}
-					try {
-						s.binary = cpu.getBinary(new Parser(s.tokens));
-					} catch (AssembleException e) {
-						throw new AssembleException(s.createMessage(e.getMessage()));
-					}
+				} catch (ParseException e) {
+					throw new AssembleException(s.createMessage("マクロ引数が不正です"));
 				}
-			} catch (ParseException e) {
-				throw new AssembleException(s.createMessage("マクロ引数が不正です"));
 			}
 			pc++;
 		}

@@ -21,10 +21,13 @@ public class Parser {
 	public String[] match(String[] ss, String[] st) {
 		List<String> list = new ArrayList<String>();
 		for (String s : ss) {
-			if (s.equals("%reg")) {
-				list.add("$" + nextReg());
+			if (s.charAt(0) == '%' && s.endsWith("reg")) {
+				String t = s.substring(1, s.length() - 3);
+				list.add("$" + t + nextReg(t));
 			} else if (s.equals("%imm")) {
 				list.add("" + nextImm());
+			} else if (s.equals("%s")) {
+				list.add(next());
 			} else {
 				eat(s);
 			}
@@ -67,12 +70,17 @@ public class Parser {
 	}
 	
 	public int nextReg() {
+		return nextReg("");
+	}
+	
+	public int nextReg(String prefix) {
+		prefix = "$" + prefix;
 		String s = next();
-		if (!s.startsWith("$") || s.indexOf('-') >= 0) {
+		if (!s.startsWith(prefix) || s.indexOf('-') >= 0) {
 			throw new ParseException();
 		}
 		try {
-			return Integer.parseInt(s.substring(1));
+			return Integer.parseInt(s.substring(prefix.length()));
 		} catch (NumberFormatException e) {
 			throw new ParseException();
 		}
@@ -120,22 +128,22 @@ public class Parser {
 	}
 	
 	private int equation() {
-		int t = factor();
-		while (crt().equals("+") || crt().equals("-")) {
-			t = eval(next(), t, factor());
-		}
-		return t;
-	}
-	
-	private int factor() {
 		int t = term();
-		while (crt().equals("*") || crt().equals("/")) {
+		while (crt().equals("+") || crt().equals("-")) {
 			t = eval(next(), t, term());
 		}
 		return t;
 	}
 	
 	private int term() {
+		int t = factor();
+		while (crt().equals("*") || crt().equals("/")) {
+			t = eval(next(), t, factor());
+		}
+		return t;
+	}
+	
+	private int factor() {
 		if (crt().equals("(")) {
 			eat("(");
 			int res = equation();

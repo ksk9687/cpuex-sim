@@ -13,7 +13,7 @@ import asm.*;
 
 public abstract class CPU {
 	
-	private static final String DEFAULT = "SuperScalar";
+	private static final String DEFAULT = "MasterScalar";
 	
 	public static CPU loadCPU(String name) {
 		String s = name;
@@ -31,14 +31,21 @@ public abstract class CPU {
 		}
 	}
 	
-	public CPU(double hz, int memorySize, int registerSize) {
+	public CPU(double hz, int memorySize, int registerSize, int offset) {
 		Hz = hz;
 		MEMORYSIZE = memorySize;
 		REGISTERSIZE = registerSize;
+		OFFSET = offset;
+		REGISTERNAME = new String[REGISTERSIZE];
+		for (int i = 0; i < REGISTERSIZE; i++) {
+			REGISTERNAME[i] = "$" + i;
+		}
 	}
 	
 	//Asm
-	protected final int imm(Parser p, int len, boolean signExt) {
+	public final int OFFSET;
+	
+	protected int imm(Parser p, int len, boolean signExt) {
 		int i = p.nextImm();
 		if (i < 0) {
 			if (!signExt || i <= (-1 ^ 1 << (len - 1))) {
@@ -55,7 +62,7 @@ public abstract class CPU {
 		return getBits(i, len - 1, 0);
 	}
 	
-	protected final int reg(Parser p) {
+	protected int reg(Parser p) {
 		int i = p.nextReg();
 		if (i < 0 || i >= REGISTERSIZE) {
 			throw new AssembleException("レジスタが不正です");
@@ -63,10 +70,10 @@ public abstract class CPU {
 		return i;
 	}
 	
-	public final int getBinary(Parser p) {
+	public final long getBinary(Parser p) {
 		try {
 			String op = p.next();
-			int bin = getBinary(op, p);
+			long bin = getBinary(op, p);
 			p.end();
 			return bin;
 		} catch (ParseException e) {
@@ -74,12 +81,19 @@ public abstract class CPU {
 		}
 	}
 	
-	protected int getBinary(String op, Parser p) {
+	protected long getBinary(String op, Parser p) {
 		throw new AssembleException("オペコードが不正です");
 	}
 	
+	public abstract void asmOut(Program prog, DataOutputStream out, boolean fillNop) throws IOException;
+	
+	public abstract void vhdlOut(Program prog, PrintWriter out);
+	
 	//Sim
 	protected final double Hz;
+	protected Program prog;
+	protected long[] bin;
+	protected int progSize;
 	protected int pc;
 	protected long clock;
 	protected long instruction;
@@ -90,11 +104,13 @@ public abstract class CPU {
 		this.in = in;
 		this.out = out;
 		progSize = prog.ss.length;
-		pc = 0;
+		pc = OFFSET;
 		regs = new int[REGISTERSIZE];
 		mems = new int[MEMORYSIZE];
+		bin = new long[progSize];
 		for (int i = 0; i < progSize; i++) {
-			mems[i] = prog.ss[i].binary;
+			bin[i] = prog.ss[i].binary;
+			mems[i] = (int)bin[i];
 		}
 		data = getData();
 		for (Data d : data) {
@@ -112,14 +128,14 @@ public abstract class CPU {
 		}
 		int p = pc;
 		for (int i = 0; i < data.length; i++) data[i].begin();
-		step(mems[pc]);
+		step(bin[pc]);
 		if (!halted) {
 			instruction++;
 			for (int i = 0; i < data.length; i++) data[i].end(p);
 		}
 	}
 	
-	protected void step(int ope) {
+	protected void step(long ope) {
 		throw new ExecuteException(String.format("IllegalOperation: %08x", ope));
 	}
 	
@@ -128,6 +144,10 @@ public abstract class CPU {
 			throw new ExecuteException(String.format("IllegalPC: %d", pc));
 		}
 		pc = newPC;
+	}
+	
+	protected void ledout(int val) {
+		System.out.printf("LED: 0x%X(%d)%n", val, val);
 	}
 	
 	//Data
@@ -171,9 +191,11 @@ public abstract class CPU {
 			super("Instructions");
 		}
 		
+		@Override
 		protected void begin() {
 		}
 		
+		@Override
 		protected void end(int pc) {
 			data[pc]++;
 		}
@@ -188,10 +210,12 @@ public abstract class CPU {
 			super("Clocks");
 		}
 		
+		@Override
 		protected void begin() {
 			c = clock;
 		}
 		
+		@Override
 		protected void end(int pc) {
 			data[pc] += clock - c;
 		}
@@ -236,7 +260,7 @@ public abstract class CPU {
 	
 	//View
 	public String[] getViews() {
-		if (data.length == 0) return new String[] {"Register", "Memory"};
+		if (count == null) return new String[] {"Register", "Memory"};
 		return new String[] {"Source", "Register", "Memory", "Stat"};
 	}
 	
@@ -313,7 +337,7 @@ public abstract class CPU {
 		protected DefaultTableModel tableModel;
 		protected JTable table;
 		protected int address, from, to;
-		protected int type;
+		protected int atype, dtype;
 		
 		protected MemoryView() {
 			super("Memory");
@@ -359,9 +383,12 @@ public abstract class CPU {
 			table.getTableHeader().setReorderingAllowed(false);
 			table.getTableHeader().addMouseListener(new MouseAdapter() {
 				public void mousePressed(MouseEvent e) {
-					if (table.getTableHeader().columnAtPoint(e.getPoint()) == 1) {
-						type = (type + 1) % TYPE.length;
+					int col = table.getTableHeader().columnAtPoint(e.getPoint());
+					if (col == 1) {
+						dtype = (dtype + 1) % TYPE.length;
 						refresh();
+					} else if (col == 0) {
+						atype = (atype + 1) % 2;
 					}
 				}
 			});
@@ -370,15 +397,17 @@ public abstract class CPU {
 			pack();
 		}
 		
+		@Override
 		public void refresh() {
-			String[] label = {"Address", TYPE[type]};
+			String[] label = {"Address", TYPE[dtype]};
 			String[][] data = new String[to - from][2];
 			for (int i = from; i < to; i++) {
-				data[i - from][0] = toHex(i);
-				if (type == 0) data[i - from][1] = toHex(mems[i]);
-				if (type == 1) data[i - from][1] = "" + mems[i];
-				if (type == 2) data[i - from][1] = toBinary(mems[i]);
-				if (type == 3) data[i - from][1] = String.format("%.6E", itof(mems[i]));
+				if (atype == 0) data[i - from][0] = "" + i;
+				else data[i - from][0] = toHex(i);
+				if (dtype == 0) data[i - from][1] = toHex(mems[i]);
+				if (dtype == 1) data[i - from][1] = "" + mems[i];
+				if (dtype == 2) data[i - from][1] = toBinary(mems[i]);
+				if (dtype == 3) data[i - from][1] = String.format("%.6E", itof(mems[i]));
 			}
 			tableModel.setDataVector(data, label);
 			table.getColumnModel().getColumn(0).setMinWidth(80);
@@ -389,6 +418,7 @@ public abstract class CPU {
 	
 	//Register
 	protected final int REGISTERSIZE;
+	protected final String[] REGISTERNAME;
 	protected int[] regs;
 	
 	protected class RegisterView extends SimView {
@@ -397,7 +427,7 @@ public abstract class CPU {
 		protected DefaultTableModel tableModel;
 		protected JTable table;
 		protected int type;
-		String[][] data = new String[REGISTERSIZE][2];
+		protected String[][] data = new String[REGISTERSIZE][2];
 		
 		protected RegisterView() {
 			super("Register");
@@ -419,10 +449,11 @@ public abstract class CPU {
 			pack();
 		}
 		
+		@Override
 		public void refresh() {
 			String[] label = {"Name", TYPE[type]};
 			for (int i = 0; i < REGISTERSIZE; i++) {
-				data[i][0] = "$" + i;
+				data[i][0] = REGISTERNAME[i];
 				if (type == 0) data[i][1] = toHex(regs[i]);
 				if (type == 1) data[i][1] = "" + regs[i];
 				if (type == 2) data[i][1] = toBinary(regs[i]);
@@ -436,9 +467,6 @@ public abstract class CPU {
 	}
 	
 	//Source
-	protected Program prog;
-	protected int progSize;
-	
 	protected class SourceView extends SimView {
 		
 		protected boolean trackingPC = true;
@@ -457,7 +485,7 @@ public abstract class CPU {
 				field[i][3] = "";
 				field[i][4] = "";
 			}
-			for (int i = 0; i < progSize; i++) {
+			for (int i = 0; i < progSize; i++) if (prog.ss[i].lineID >= 0) {
 				field[prog.ss[i].lineID][1] = "" + i;
 			}
 			tableModel = new DefaultTableModel();
@@ -514,10 +542,11 @@ public abstract class CPU {
 			pack();
 		}
 		
+		@Override
 		public void refresh() {
 			label[3] = data[data1].name;
 			label[4] = data[data2].name;
-			for (int i = 0; i < progSize; i++) {
+			for (int i = 0; i < progSize; i++) if (prog.ss[i].lineID >= 0) {
 				field[prog.ss[i].lineID][3] = String.format("%,10d", data[data1].data[i]);
 				field[prog.ss[i].lineID][4] = String.format("%,10d", data[data2].data[i]);
 			}
@@ -595,6 +624,7 @@ public abstract class CPU {
 			pack();
 		}
 		
+		@Override
 		public void refresh() {
 			label[2] = data[data1].name;
 			label[3] = data[data2].name;

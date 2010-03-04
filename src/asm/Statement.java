@@ -15,7 +15,7 @@ public class Statement {
 	public String[] labels;
 	public String str;
 	public String[] tokens;
-	public int binary;
+	public long binary;
 	
 	public Statement(int lineID, String original) {
 		this.lineID = lineID;

@@ -8,12 +8,11 @@ import java.util.*;
 public class Utils {
 	
 	//high downto low
-	public static int getBits(int i, int high, int low) {
-		if (high == 31 && low == 0) return i;
-		return i >>> low & ((1 << (high - low + 1)) - 1);
+	public static int getBits(long i, int high, int low) {
+		return (int)(i >>> low & ((1L << (high - low + 1)) - 1));
 	}
 	
-	public static int getBit(int i, int j) {
+	public static int getBit(long i, int j) {
 		return getBits(i, j, j);
 	}
 	

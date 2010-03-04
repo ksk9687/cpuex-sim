@@ -64,7 +64,7 @@ public class Main {
 		String simOut = null;
 		String encoding = "UTF-8";
 		String cpuName = "";
-		boolean xyx = false;
+		boolean fillNop = false;
 		boolean ok = true;
 		try {
 			for (int i = 0; i < args.length; i++) {
@@ -75,6 +75,8 @@ public class Main {
 				} else if (args[i].equals("-asm")) {
 					if (asmOut != null) ok = false;
 					asmOut = args[++i];
+				} else if (args[i].equals("-fillNop")) {
+					fillNop = true;
 				} else if (args[i].equals("-vhdl")) {
 					if (vhdlOut != null) ok = false;
 					vhdlOut = args[++i];
@@ -90,8 +92,6 @@ public class Main {
 				} else if (args[i].equals("-out")) {
 					if (simOut != null) ok = false;
 					simOut = args[++i];
-				} else if (args[i].equals("-xyx")) {
-					xyx = true;
 				} else if (args[i].charAt(0) != '-') {
 					if (fileName != null) ok = false;
 					fileName = args[i];
@@ -106,7 +106,7 @@ public class Main {
 		if (fileName == null) ok = false;
 		if (simType == 0 && (simIn != null || simOut != null)) ok = false;
 		if (!ok) {
-			System.err.println("使い方: sim file [-cpu s] [-encoding s] [-asm s] [-vhdl s] [-gui] [-cui] [-in s] [-out s]");
+			System.err.println("使い方: sim file [-cpu s] [-encoding s] [-asm s] [-fillNop] [-vhdl s] [-gui] [-cui] [-in s] [-out s]");
 			System.exit(1);
 		}
 		CPU cpu = CPU.loadCPU(cpuName);
@@ -122,39 +122,13 @@ public class Main {
 		System.err.println("Finished!");
 		if (asmOut != null) {
 			try {
-				DataOutputStream out = new DataOutputStream(openOutputFile(asmOut));
-				out.writeInt(prog.ss.length);
-				for (Statement s : prog.ss) {
-					out.writeInt(s.binary);
-				}
-				out.close();
+				cpu.asmOut(prog, new DataOutputStream(openOutputFile(asmOut)), fillNop);
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
 		}
 		if (vhdlOut != null) {
-			PrintWriter out = new PrintWriter(openOutputFile(vhdlOut));
-			for (Statement s : prog.ss) {
-				out.printf("\"%s\",%n", toBinary(s.binary));
-			}
-			out.close();
-		}
-		if (xyx) {
-			Random r = new Random();
-			int num = prog.ss.length * 36;
-			for (Statement s : prog.ss) {
-				String str = toBinary(s.binary);
-				for (int j = 0; j < 4; j++) {
-					System.out.print("\"0\"&\"");
-					System.out.print(str.substring(j * 8, (j + 1) * 8));
-					int m = 1 + r.nextInt(10);
-					num += m;
-					System.out.print("\"&\"");
-					for (int k = 0; k < m; k++) System.out.print(1);
-					System.out.println("\"&");
-				}
-			}
-			System.out.println(num);
+			cpu.vhdlOut(prog, new PrintWriter(openOutputFile(vhdlOut)));
 		}
 		if (simType != 0) {
 			InputStream in = null;

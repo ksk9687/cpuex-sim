@@ -10,14 +10,10 @@ import javax.swing.table.*;
 import sim.*;
 import asm.*;
 
-public class SuperScalar extends CPU {
+public class SuperScalar extends CPU32 {
 	
 	public SuperScalar() {
 		super(150e6, 1 << 20, 1 << 6);
-	}
-	
-	public SuperScalar(double hz) {
-		super(hz, 1 << 20, 1 << 6);
 	}
 	
 	//Asm
@@ -29,78 +25,8 @@ public class SuperScalar extends CPU {
 		return op << 26 | rs << 20 | rt << 14 | imm;
 	}
 	
-//	int liMax, addiMin, addiMax, cmpiMin, cmpiMax, loadMin, loadMax, storeMin, storeMax;
-//	
-//	protected int getBinary(String op, Parser p) {
-//		if (op.equals("li")) {
-//			reg(p); int v = p.nextImm(); if (v != 4096) liMax = max(liMax, v);
-//			p.init(); p.next();
-//			return typeI(000, 0, reg(p), imm(p, 14, false));
-//		} else if (op.equals("add")) {
-//			return typeR(010, reg(p), reg(p), reg(p));
-//		} else if (op.equals("addi")) {
-//			reg(p); reg(p); int v = p.nextImm(); addiMin = min(addiMin, v); addiMax = max(addiMax, v);
-//			p.init(); p.next();
-//			return typeI(001, reg(p), reg(p), imm(p, 14, true));
-//		} else if (op.equals("sub")) {
-//			return typeR(011, reg(p), reg(p), reg(p));
-//		} else if (op.equals("sll")) {
-//			return typeI(002, reg(p), reg(p), imm(p, 5, false));
-//		} else if (op.equals("cmp")) {
-//			return typeI(012, reg(p), reg(p), 0);
-//		} else if (op.equals("cmpi")) {
-//			reg(p); int v = p.nextImm(); cmpiMin = min(cmpiMin, v); cmpiMax = max(cmpiMax, v);
-//			p.init(); p.next();
-//			return typeI(003, reg(p), 0, imm(p, 14, true));
-//		} else if (op.equals("fadd")) {
-//			return typeR(020, reg(p), reg(p), reg(p));
-//		} else if (op.equals("fsub")) {
-//			return typeR(021, reg(p), reg(p), reg(p));
-//		} else if (op.equals("fmul")) {
-//			return typeR(022, reg(p), reg(p), reg(p));
-//		} else if (op.equals("finv")) {
-//			return typeR(023, reg(p), 0, reg(p));
-//		} else if (op.equals("fsqrt")) {
-//			return typeR(024, reg(p), 0, reg(p));
-//		} else if (op.equals("fcmp")) {
-//			return typeI(025, reg(p), reg(p), 0);
-//		} else if (op.equals("fabs")) {
-//			return typeR(006, reg(p), 0, reg(p));
-//		} else if (op.equals("fneg")) {
-//			return typeR(007, reg(p), 0, reg(p));
-//		} else if (op.equals("load")) {
-//			reg(p); reg(p); int v = p.nextImm(); loadMin = min(loadMin, v); loadMax = max(loadMax, v);
-//			p.init(); p.next();
-//			return typeI(030, reg(p), reg(p), imm(p, 14, true));
-//		} else if (op.equals("loadr")) {
-//			return typeR(031, reg(p), reg(p), reg(p));
-//		} else if (op.equals("store")) {
-//			reg(p); reg(p); int v = p.nextImm(); storeMin = min(storeMin, v); storeMax = max(storeMax, v);
-//			p.init(); p.next();
-//			return typeI(032, reg(p), reg(p), imm(p, 14, true));
-//		} else if (op.equals("read")) {
-//			return typeI(050, 0, reg(p), 1);
-//		} else if (op.equals("write")) {
-//			return typeI(051, reg(p), reg(p), 1);
-//		} else if (op.equals("ledout")) {
-//			return typeI(052, reg(p), 0, 0);
-//		} else if (op.equals("nop")) {
-//			return typeI(060, 0, 0, 0);
-//		} else if (op.equals("halt")) {
-//			return typeI(061, 0, 0, 0);
-//		} else if (op.equals("mov")) {
-//			return typeI(005, reg(p), reg(p), 0);
-//		} else if (op.equals("jmp")) {
-//			return typeI(070, imm(p, 3, false), 0, imm(p, 14, false));
-//		} else if (op.equals("call")) {
-//			return typeI(071, 0, 0, imm(p, 14, false));
-//		} else if (op.equals("ret")) {
-//			return typeI(072, 0, 0, 0);
-//		}
-//		return super.getBinary(op, p);
-//	}
-	
-	protected int getBinary(String op, Parser p) {
+	@Override
+	protected long getBinary(String op, Parser p) {
 		if (op.equals("li")) {
 			return typeI(000, 0, reg(p), imm(p, 14, false));
 		} else if (op.equals("add")) {
@@ -202,9 +128,9 @@ public class SuperScalar extends CPU {
 		delay[051] = 1; //write
 	}
 	
+	@Override
 	protected void init() {
 		super.init();
-//		util.Utils.debug(liMax, addiMin, addiMax, cmpiMin, cmpiMax, loadMin, loadMax, storeMin, storeMax);
 		cond = 0;
 		callDepth = 0;
 		maxDepth = 0;
@@ -264,7 +190,9 @@ public class SuperScalar extends CPU {
 		return ftoi(-(itof(a)));
 	}
 	
-	protected final void step(int ope) {
+	@Override
+	protected final void step(long _ope) {
+		int ope = (int)_ope;
 		int opecode = ope >>> 26;
 		int rs = ope >>> 20 & (REGISTERSIZE - 1);
 		int rt = ope >>> 14 & (REGISTERSIZE - 1);
@@ -396,6 +324,7 @@ public class SuperScalar extends CPU {
 		}
 	}
 	
+	@Override
 	protected int load(int addr) {
 		if (addr < 0x10000) dataLoad++;
 		else if (addr < 0x70000) {
@@ -409,6 +338,7 @@ public class SuperScalar extends CPU {
 		return super.load(addr);
 	}
 	
+	@Override
 	protected void store(int addr, int i) {
 		if (addr < 0x10000) dataStore++;
 		else if (addr < 0x70000) {
@@ -475,6 +405,7 @@ public class SuperScalar extends CPU {
 		bpHistory = (bpHistory << 1 | taken) & ((1 << 9) - 1);
 	}
 	
+	@Override
 	public String[] getViews() {
 		ArrayList<String> list = new ArrayList<String>(asList(super.getViews()));
 		list.add("CallStack");
@@ -482,6 +413,7 @@ public class SuperScalar extends CPU {
 	}
 	
 	//CallStack
+	@Override
 	public SimView createView(String name) {
 		if (name.equals("CallStack")) {
 			return new CallStackView();
@@ -519,6 +451,7 @@ public class SuperScalar extends CPU {
 			pack();
 		}
 		
+		@Override
 		public void refresh() {
 			String[] label = {"Depth", "PC"};
 			String[][] data = new String[MAXDEPTH][2];
@@ -534,6 +467,7 @@ public class SuperScalar extends CPU {
 	}
 	
 	//Data
+	@Override
 	protected Data[] getData() {
 		ArrayList<Data> list = new ArrayList<Data>(asList(super.getData()));
 		list.add(new StallData());
@@ -551,10 +485,12 @@ public class SuperScalar extends CPU {
 			super("Stall");
 		}
 		
+		@Override
 		protected void begin() {
 			m = stalled;
 		}
 		
+		@Override
 		protected void end(int pc) {
 			data[pc] += stalled - m;
 		}
@@ -569,10 +505,12 @@ public class SuperScalar extends CPU {
 			super("ICacheMiss");
 		}
 		
+		@Override
 		protected void begin() {
 			m = iMiss;
 		}
 		
+		@Override
 		protected void end(int pc) {
 			data[pc] += iMiss - m;
 		}
@@ -587,10 +525,12 @@ public class SuperScalar extends CPU {
 			super("DCacheMiss");
 		}
 		
+		@Override
 		protected void begin() {
 			m = dMiss;
 		}
 		
+		@Override
 		protected void end(int pc) {
 			data[pc] += dMiss - m;
 		}
@@ -605,10 +545,12 @@ public class SuperScalar extends CPU {
 			super("BranchMiss");
 		}
 		
+		@Override
 		protected void begin() {
 			m = bpMiss;
 		}
 		
+		@Override
 		protected void end(int pc) {
 			data[pc] += bpMiss - m;
 		}
@@ -704,7 +646,8 @@ public class SuperScalar extends CPU {
 	//Debug
 	protected static class Debug extends SuperScalar {
 		
-		protected int getBinary(String op, Parser p) {
+		@Override
+		protected long getBinary(String op, Parser p) {
 			if (op.equals("debug_int")) {
 				return typeI(060, 1, reg(p), 0);
 			} else if (op.equals("debug_float")) {
@@ -715,6 +658,7 @@ public class SuperScalar extends CPU {
 			return super.getBinary(op, p);
 		}
 		
+		@Override
 		protected void step(int ope, int opecode, int rs, int rt, int rd, int imm) {
 			if (opecode == 060 && rs == 1) { //debug_int
 				System.out.printf("%s(%d)%n", toHex(regs[rt]), regs[rt]);
@@ -734,6 +678,7 @@ public class SuperScalar extends CPU {
 	//NoStat
 	protected static class NoStat extends SuperScalar {
 		
+		@Override
 		protected Data[] getData() {
 			return new Data[0];
 		}
@@ -743,6 +688,7 @@ public class SuperScalar extends CPU {
 	//FPU
 	protected static class FPU extends SuperScalar {
 		
+		@Override
 		protected int fadd(int a, int b) {
 			int as, ae, am;
 			int bs, be, bm;
@@ -782,6 +728,7 @@ public class SuperScalar extends CPU {
 			return ((rs & 1) << 31) | ((re & 0xff) << 23) | (rm & 0x7fffff);
 		}
 		
+		@Override
 		protected int fsub(int a, int b) {
 			return fadd(a, fneg(b));
 		}
@@ -792,6 +739,7 @@ public class SuperScalar extends CPU {
 			return a & ((1 << n) - 1);
 		}
 		
+		@Override
 		protected int fmul(int a, int b) {
 			if (downto(a, 30, 23) == 0 || downto(b, 30, 23) == 0) return 0;
 			
@@ -819,6 +767,7 @@ public class SuperScalar extends CPU {
 			return (int)((rs << 31) | (re << 23) | (rm));
 		}
 		
+		@Override
 		protected int finv(int a) {
 			int as, ae, am;
 			int rs, re, rm;
@@ -849,6 +798,7 @@ public class SuperScalar extends CPU {
 			return ((rs & 1) << 31) | ((re & 0xff) << 23) | (rm & 0x7fffff);
 		}
 		
+		@Override
 		protected int fsqrt(int a) {
 			int as, ae, am;
 			int rs, re, rm;
@@ -894,6 +844,7 @@ public class SuperScalar extends CPU {
 			return ((rs & 1) << 31) | ((re & 0xff) << 23) | (rm & 0x7fffff);
 		}
 		
+		@Override
 		protected int fneg(int a) {
 			int s = (1 & (a >>> 31)) == 1 ? 0 : 1;
 			return (s << 31) | (0x7fffffff & a);
