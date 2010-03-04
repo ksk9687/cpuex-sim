@@ -288,7 +288,7 @@ public class SuperScalar extends CPU32 {
 			changePC(pc + 1);
 		} else if (opecode == 052) { //ledout
 			stall(opecode, -1);
-			System.out.printf("LED: %s%n", toBinary(regs[rs]).substring(24));
+			System.err.printf("LED: %s%n", toBinary(regs[rs]).substring(24));
 			changePC(pc + 1);
 		} else if (opecode == 060) { //nop
 			stall(opecode, -1);
@@ -599,48 +599,47 @@ public class SuperScalar extends CPU32 {
 	
 	protected void printStat() {
 		System.err.println();
-		System.err.flush();
-		System.out.printf("コード長:%d%n", progSize);
-		System.out.println();
-		System.out.println("* Time");
-		System.out.printf("| Total | %.3f |%n", clock / Hz);
-		System.out.printf("| Instruction | %.3f |%n", instruction / Hz);
-		System.out.printf("| Stall | %.3f |%n", stalled / Hz);
-		System.out.printf("| ICacheMiss | %.3f |%n", iMiss * 6 / Hz);
-		System.out.printf("| DCacheMiss | %.3f |%n", dMiss * 6 / Hz);
-		System.out.printf("| BranchMiss | %.3f |%n", bpMiss * 2 / Hz);
-		System.out.println();
-		System.out.println("* InstructionCount");
-		System.out.println("| Name | Count | Clocks | CPI |");
-		System.out.printf("| Total | %,d | %,d | %.3f |%n", instruction, clock, (double)clock / instruction);
+		System.err.printf("コード長:%d%n", progSize);
+		System.err.println();
+		System.err.println("* Time");
+		System.err.printf("| Total | %.3f |%n", clock / Hz);
+		System.err.printf("| Instruction | %.3f |%n", instruction / Hz);
+		System.err.printf("| Stall | %.3f |%n", stalled / Hz);
+		System.err.printf("| ICacheMiss | %.3f |%n", iMiss * 6 / Hz);
+		System.err.printf("| DCacheMiss | %.3f |%n", dMiss * 6 / Hz);
+		System.err.printf("| BranchMiss | %.3f |%n", bpMiss * 2 / Hz);
+		System.err.println();
+		System.err.println("* InstructionCount");
+		System.err.println("| Name | Count | Clocks | CPI |");
+		System.err.printf("| Total | %,d | %,d | %.3f |%n", instruction, clock, (double)clock / instruction);
 		for (int i = 0; i < NAME.length; i++) if (NAME[i] != null) {
-			System.out.printf("| %s | %,d (%.3f) | %,d (%.3f) | %.3f |%n", NAME[i], countOpe[i], 100.0 * countOpe[i] / instruction, clockOpe[i], 100.0 * clockOpe[i] / clock, countOpe[i] == 0 ? 0 : (double)clockOpe[i] / countOpe[i]);
+			System.err.printf("| %s | %,d (%.3f) | %,d (%.3f) | %.3f |%n", NAME[i], countOpe[i], 100.0 * countOpe[i] / instruction, clockOpe[i], 100.0 * clockOpe[i] / clock, countOpe[i] == 0 ? 0 : (double)clockOpe[i] / countOpe[i]);
 		}
-		System.out.println();
-		System.out.println("* CallStack");
-		System.out.printf("| MaxDepth | %d |%n", maxDepth);
-		System.out.println();
-		System.out.println("* Memory");
-		System.out.printf("| Type | Size | Load | Store |%n");
-		System.out.printf("| Data | %,d | %,d | %,d |%n", dataSize, dataLoad, dataStore);
-		System.out.printf("| Stack | %,d | %,d | %,d |%n", stackSize, stackLoad, stackStore);
-		System.out.printf("| Heap | %,d | %,d | %,d |%n", heapSize, heapLoad, heapStore);
-		System.out.println();
-		System.out.println("* ICache");
-		System.out.printf("| Total | %,d |%n", iHit + iMiss);
-		System.out.printf("| Hit | %,d (%.3f) |%n", iHit, 100.0 * iHit / (iHit + iMiss));
-		System.out.printf("| Miss | %,d (%.3f) |%n", iMiss, 100.0 * iMiss / (iHit + iMiss));
-		System.out.println();
-		System.out.println("* DCache");
-		System.out.printf("| Total | %,d |%n", dHit + dMiss);
-		System.out.printf("| Hit | %,d (%.3f) |%n", dHit, 100.0 * dHit / (dHit + dMiss));
-		System.out.printf("| Miss | %,d (%.3f) |%n", dMiss, 100.0 * dMiss / (dHit + dMiss));
-		System.out.println();
-		System.out.println("* BranchPrediction");
-		System.out.printf("| Total | %,d |%n", bpHit + bpMiss);
-		System.out.printf("| Hit | %,d (%.3f) |%n", bpHit, 100.0 * bpHit / (bpHit + bpMiss));
-		System.out.printf("| Miss | %,d (%.3f) |%n", bpMiss, 100.0 * bpMiss / (bpHit + bpMiss));
-		System.out.println();
+		System.err.println();
+		System.err.println("* CallStack");
+		System.err.printf("| MaxDepth | %d |%n", maxDepth);
+		System.err.println();
+		System.err.println("* Memory");
+		System.err.printf("| Type | Size | Load | Store |%n");
+		System.err.printf("| Data | %,d | %,d | %,d |%n", dataSize, dataLoad, dataStore);
+		System.err.printf("| Stack | %,d | %,d | %,d |%n", stackSize, stackLoad, stackStore);
+		System.err.printf("| Heap | %,d | %,d | %,d |%n", heapSize, heapLoad, heapStore);
+		System.err.println();
+		System.err.println("* ICache");
+		System.err.printf("| Total | %,d |%n", iHit + iMiss);
+		System.err.printf("| Hit | %,d (%.3f) |%n", iHit, 100.0 * iHit / (iHit + iMiss));
+		System.err.printf("| Miss | %,d (%.3f) |%n", iMiss, 100.0 * iMiss / (iHit + iMiss));
+		System.err.println();
+		System.err.println("* DCache");
+		System.err.printf("| Total | %,d |%n", dHit + dMiss);
+		System.err.printf("| Hit | %,d (%.3f) |%n", dHit, 100.0 * dHit / (dHit + dMiss));
+		System.err.printf("| Miss | %,d (%.3f) |%n", dMiss, 100.0 * dMiss / (dHit + dMiss));
+		System.err.println();
+		System.err.println("* BranchPrediction");
+		System.err.printf("| Total | %,d |%n", bpHit + bpMiss);
+		System.err.printf("| Hit | %,d (%.3f) |%n", bpHit, 100.0 * bpHit / (bpHit + bpMiss));
+		System.err.printf("| Miss | %,d (%.3f) |%n", bpMiss, 100.0 * bpMiss / (bpHit + bpMiss));
+		System.err.println();
 	}
 	
 	//Debug
@@ -661,10 +660,10 @@ public class SuperScalar extends CPU32 {
 		@Override
 		protected void step(int ope, int opecode, int rs, int rt, int rd, int imm) {
 			if (opecode == 060 && rs == 1) { //debug_int
-				System.out.printf("%s(%d)%n", toHex(regs[rt]), regs[rt]);
+				System.err.printf("%s(%d)%n", toHex(regs[rt]), regs[rt]);
 				changePC(pc + 1);
 			} else if (opecode == 060 && rs == 2) { //debug_float
-				System.out.printf("%.6E%n", itof(regs[rt]));
+				System.err.printf("%.6E%n", itof(regs[rt]));
 				changePC(pc + 1);
 			} else if (opecode == 060 && rs == 3) { //break
 				changePC(pc + 1);

@@ -9,13 +9,12 @@
 	-vhdl hoge	アセンブルの結果をhogeにVHDL向け二進数出力する
 	-gui	GUIモードでシミュレーションを行う
 	-cui	CUIモードでシミュレーションを行う
-	-in	hoge	入力ファイルを指定(指定しないとread時にエラーになる)
-	-out hoge	出力ファイルを指定(指定しないとwriteしたものが消滅する)
+	-noOutput	結果を出力しない
 
 例えば、
 sim fib.s -asm fib.bin
 で、バイナリファイルが作られ、
-sim fib.s -cui -in in.dat -out out.dat
+sim fib.s -cui < in.dat > out.dat
 で、fib.sを入力in.datに対して実行してout.datに出力する
 
 *アセンブリ言語の仕様
@@ -42,10 +41,6 @@ jmpやliなどの即値としてラベルを指定することができる
 *デバッグ用CPU
 -cpu Scalar.Debugを指定すると、デバッグ用命令が使用できる
 アセンブラの場合は次の命令が使用可能
-debug_int %Reg		レジスタの値をint値として標準エラーに出力
-debug_float %Reg	レジスタの値を浮動小数として標準エラーに出力
 break	ブレークポイント(GUIモードでのみサポート)
 MinCamlの場合はdebug.sとくっつけることで次の外部関数が使用できる
-val debug_int : int -> unit
-val debug_float : float -> unit
 val break : unit -> unit

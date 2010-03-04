@@ -99,9 +99,8 @@ public abstract class CPU {
 	protected long instruction;
 	protected boolean halted;
 	
-	public final void init(Program prog, InputStream in, OutputStream out) {
+	public final void init(Program prog, boolean out) {
 		this.prog = prog;
-		this.in = in;
 		this.out = out;
 		progSize = prog.ss.length;
 		pc = OFFSET;
@@ -147,7 +146,7 @@ public abstract class CPU {
 	}
 	
 	protected void ledout(int val) {
-		System.out.printf("LED: 0x%X(%d)%n", val, val);
+		System.err.printf("LED: 0x%X, %d, %.6E%n", val, val, itof(val));
 	}
 	
 	//Data
@@ -279,18 +278,14 @@ public abstract class CPU {
 	}
 	
 	//IO
-	protected InputStream in;
-	protected OutputStream out;
+	protected boolean out;
 	protected int readByteNum;
 	protected int writeByteNum;
 	
 	protected final int read() {
-		if (in == null) {
-			throw new ExecuteException("Cannot read!");
-		}
 		try {
 			readByteNum++;
-			int i = in.read();
+			int i = System.in.read();
 			if (i < 0) throw new ExecuteException("Cannot read!");
 			return i;
 		} catch (IOException e) {
@@ -301,14 +296,11 @@ public abstract class CPU {
 	protected final int write(int i) {
 		writeByteNum++;
 		System.err.printf("\rwrite %d bytes", writeByteNum);
-		if (out == null) return 0;
-		try {
-			out.write(i & 0xff);
-			out.flush();
-			return 0;
-		} catch (IOException e) {
-			throw new ExecuteException(e.getMessage());
+		if (out) {
+			System.out.write(i & 0xff);
+			System.out.flush();
 		}
+		return 0;
 	}
 	
 	//Memory
@@ -609,14 +601,14 @@ public abstract class CPU {
 						ss[i + 1][1] = field[i][1].trim();
 						for (int j = 0; j < data.length; j++) ss[i + 1][2 + j] = String.format("%,d", data[j].sum[i]);
 					}
-					System.out.println("* BlockCount");
+					System.err.println("* BlockCount");
 					for (String[] s : ss) {
 						for (int i = 0; i < s.length; i++) {
-							System.out.print("| " + s[i] + " ");
+							System.err.print("| " + s[i] + " ");
 						}
-						System.out.println("|");
+						System.err.println("|");
 					}
-					System.out.println();
+					System.err.println();
 				}
 			}), BorderLayout.SOUTH);
 			add(new JScrollPane(table), BorderLayout.CENTER);

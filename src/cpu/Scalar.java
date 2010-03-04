@@ -202,7 +202,7 @@ public class Scalar extends CPU32 {
 			pc++;
 			clock += 3;
 		} else if (opecode == 21) { //ledout
-			System.out.printf("LED: %s%n", toBinary(regs[rs]).substring(24));
+			System.err.printf("LED: %s%n", toBinary(regs[rs]).substring(24));
 			pc++;
 		} else {
 			super.step(ope);
@@ -243,21 +243,21 @@ public class Scalar extends CPU32 {
 	protected long dhit, dmiss;
 	
 	protected void printStat() {
-		System.out.println("* 命令実行数");
-		System.out.printf("| Total | %,d |%n", instruction);
+		System.err.println("* 命令実行数");
+		System.err.printf("| Total | %,d |%n", instruction);
 		for (int i = 0; i < NAME.length; i++) {
-			System.out.printf("| %s | %,d (%.3f) |%n", NAME[i], countOpe[i], 100.0 * countOpe[i] / (instruction));
+			System.err.printf("| %s | %,d (%.3f) |%n", NAME[i], countOpe[i], 100.0 * countOpe[i] / (instruction));
 		}
-		System.out.println();
-		System.out.println("* ICache");
-		System.out.printf("| Total | %,d |%n", ihit + imiss);
-		System.out.printf("| Hit | %,d (%.3f) |%n", ihit, 100.0 * ihit / (ihit + imiss));
-		System.out.printf("| Miss | %,d (%.3f) |%n", imiss, 100.0 * imiss / (ihit + imiss));
-		System.out.println();
-		System.out.println("* DCache");
-		System.out.printf("| Total | %,d |%n", dhit + dmiss);
-		System.out.printf("| Hit | %,d (%.3f) |%n", dhit, 100.0 * dhit / (dhit + dmiss));
-		System.out.printf("| Miss | %,d (%.3f) |%n", dmiss, 100.0 * dmiss / (dhit + dmiss));
+		System.err.println();
+		System.err.println("* ICache");
+		System.err.printf("| Total | %,d |%n", ihit + imiss);
+		System.err.printf("| Hit | %,d (%.3f) |%n", ihit, 100.0 * ihit / (ihit + imiss));
+		System.err.printf("| Miss | %,d (%.3f) |%n", imiss, 100.0 * imiss / (ihit + imiss));
+		System.err.println();
+		System.err.println("* DCache");
+		System.err.printf("| Total | %,d |%n", dhit + dmiss);
+		System.err.printf("| Hit | %,d (%.3f) |%n", dhit, 100.0 * dhit / (dhit + dmiss));
+		System.err.printf("| Miss | %,d (%.3f) |%n", dmiss, 100.0 * dmiss / (dhit + dmiss));
 	}
 	
 	//Debug
@@ -278,10 +278,10 @@ public class Scalar extends CPU32 {
 		@Override
 		protected void step(int ope, int opecode, int rs, int rt, int rd, int imm, int addr) {
 			if (opecode == 63) { //debug_int
-				System.out.printf("%s(%d)%n", toHex(regs[rs]), regs[rs]);
+				System.err.printf("%s(%d)%n", toHex(regs[rs]), regs[rs]);
 				pc++;
 			} else if (opecode == 62) { //debug_float
-				System.out.printf("%.6E%n", itof(regs[rs]));
+				System.err.printf("%.6E%n", itof(regs[rs]));
 				pc++;
 			} else if (opecode == 61) { //break
 				pc++;

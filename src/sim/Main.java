@@ -60,11 +60,10 @@ public class Main {
 		String fileName = null;
 		String asmOut = null;
 		String vhdlOut = null;
-		String simIn = null;
-		String simOut = null;
 		String encoding = "UTF-8";
 		String cpuName = "";
 		boolean fillNop = false;
+		boolean noOutput = false;
 		boolean ok = true;
 		try {
 			for (int i = 0; i < args.length; i++) {
@@ -86,12 +85,8 @@ public class Main {
 				} else if (args[i].equals("-cui")) {
 					if (simType != 0) ok = false;
 					simType = 2;
-				} else if (args[i].equals("-in")) {
-					if (simIn != null) ok = false;
-					simIn = args[++i];
-				} else if (args[i].equals("-out")) {
-					if (simOut != null) ok = false;
-					simOut = args[++i];
+				} else if (args[i].equals("-noOutput")) {
+					noOutput = true;
 				} else if (args[i].charAt(0) != '-') {
 					if (fileName != null) ok = false;
 					fileName = args[i];
@@ -103,10 +98,9 @@ public class Main {
 		} catch (ArrayIndexOutOfBoundsException e) {
 			ok = false;
 		}
-		if (fileName == null) ok = false;
-		if (simType == 0 && (simIn != null || simOut != null)) ok = false;
+		if (fileName == null || simType == 0 && noOutput) ok = false;
 		if (!ok) {
-			System.err.println("使い方: sim file [-cpu s] [-encoding s] [-asm s] [-fillNop] [-vhdl s] [-gui] [-cui] [-in s] [-out s]");
+			System.err.println("使い方: sim file [-cpu s] [-encoding s] [-asm s] [-fillNop] [-vhdl s] [-gui] [-cui] [-noOutput]");
 			System.exit(1);
 		}
 		CPU cpu = CPU.loadCPU(cpuName);
@@ -131,11 +125,7 @@ public class Main {
 			cpu.vhdlOut(prog, new PrintWriter(openOutputFile(vhdlOut)));
 		}
 		if (simType != 0) {
-			InputStream in = null;
-			OutputStream out = null;
-			if (simIn != null) in = openInputFile(simIn);
-			if (simOut != null) out = openOutputFile(simOut);
-			Simulator sim = new Simulator(cpu, prog, in, out);
+			Simulator sim = new Simulator(cpu, prog, !noOutput);
 			if (simType == 1) {
 				sim.runGUI();
 			} else {

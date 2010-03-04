@@ -133,7 +133,7 @@ public class MasterScalar extends CPU36 {
 				regs[rd] = regs[rs] + regs[rt];
 				changePC(pc + 1);
 			} else if (op == 6) { //sub
-				regs[rd] = regs[rs] + regs[rt];
+				regs[rd] = regs[rs] - regs[rt];
 				changePC(pc + 1);
 			} else if (op == 3) { //jal
 				regs[rd] = pc + 1;
@@ -152,8 +152,9 @@ public class MasterScalar extends CPU36 {
 			if (op == 0) { //cmpjmp
 				int cond = cmp(regs[rs], regs[rt]);
 				if ((cond & mask) == 0) {
-					if (imm2 == pc) {
+					if (imm2 == pc) { //halt
 						halted = true;
+						System.err.println();
 					} else {
 						changePC(imm2);
 					}

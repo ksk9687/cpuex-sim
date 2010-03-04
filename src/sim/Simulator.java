@@ -4,7 +4,6 @@ import static java.lang.Math.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.beans.*;
-import java.io.*;
 import java.lang.reflect.*;
 import java.util.*;
 import javax.swing.*;
@@ -17,9 +16,9 @@ public class Simulator {
 	private JFrame frame;
 	private JDesktopPane desktop;
 	
-	public Simulator(CPU cpu, Program prog, InputStream in, OutputStream out) {
+	public Simulator(CPU cpu, Program prog, boolean out) {
 		this.cpu = cpu;
-		cpu.init(prog, in, out);
+		cpu.init(prog, out);
 	}
 	
 	public void runGUI() {
