@@ -82,7 +82,7 @@
 	li      0, $i0
 	mov     $i0, $f0
 	li      0x2000, $hp
-	sll		$hp, $hp
+	sll     $hp, $hp
 	sll     $hp, $sp
 	sll     $sp, $sp
 	sll     $sp, $sp
