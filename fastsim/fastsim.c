@@ -75,41 +75,61 @@ int main(int argc, char **argv) {
 	load(argv[1]);
 	for (count = 1; ; count++) {
 		ll ope = bin[pc];
-		if (unitop == 0) {
-			//ALU
-			if (op == 0) { //li
-				iregs[rd] = imm;
+		if (unitop == 2) {
+			//LOADSTORE
+			if (op == 4) { //fload
+				fregs[rd] = mem[iregs[rs] + sImm];
 				pc++;
-			} else if (op == 1) { //addi
-				iregs[rd] = iregs[rs] + imm;
+			} else if (op == 0) { //load
+				iregs[rd] = mem[iregs[rs] + sImm];
 				pc++;
-			} else if (op == 2) { //subi
-				iregs[rd] = iregs[rs] - imm;
+			} else if (op == 1) { //loadr
+				iregs[rd] = mem[iregs[rs] + iregs[rt]];
 				pc++;
-			} else if (op == 4) { //mov
-				iregs[rd] = iregs[rs];
+			} else if (op == 2) { //store
+				mem[iregs[rs] + sImm2] = iregs[rt];
 				pc++;
-			} else if (op == 5) { //add
-				iregs[rd] = iregs[rs] + iregs[rt];
+			} else if (op == 6) { //fstore
+				mem[iregs[rs] + sImm2] = fregs[rt];
 				pc++;
-			} else if (op == 6) { //sub
-				iregs[rd] = iregs[rs] - iregs[rt];
+			} else if (op == 5) { //floadr
+				fregs[rd] = mem[iregs[rs] + iregs[rt]];
 				pc++;
-			} else if (op == 3) { //jal
-				iregs[rd] = pc + 1;
-				pc = imm;
+			} else if (op == 3) { //imovf
+				fregs[rd] = iregs[rt];
+				pc++;
+			} else if (op == 7) { //fmovi
+				iregs[rd] = fregs[rt];
+				pc++;
+			} else {
+				ERROR
+			}
+		} else if (unitop == 4) {
+			//FPU
+			if (op == 2) { //fmul
+				fregs[rd] = fabsneg(ftoi(itof(fregs[rs]) * itof(fregs[rt])), subop);
+				pc++;
+			} else if (op == 0) { //fadd
+				fregs[rd] = fabsneg(ftoi(itof(fregs[rs]) + itof(fregs[rt])), subop);
+				pc++;
+			} else if (op == 1) { //fsub
+				fregs[rd] = fabsneg(ftoi(itof(fregs[rs]) - itof(fregs[rt])), subop);
+				pc++;
+			} else if (op == 5) { //fmov
+				fregs[rd] = fabsneg(fregs[rs], subop);
+				pc++;
+			} else if (op == 4) { //fsqrt
+				fregs[rd] = fabsneg(ftoi(sqrtf(itof(fregs[rs]))), subop);
+				pc++;
+			} else if (op == 3) { //finv
+				fregs[rd] = fabsneg(ftoi(1.0f / itof(fregs[rs])), subop);
+				pc++;
 			} else {
 				ERROR
 			}
 		} else if (unitop == 6) {
 			//JMP
-			if (jop == 0) { //cmpjmp
-				if ((cmp(iregs[rs], iregs[rt]) & mask) == 0) {
-					pc = imm2;
-				} else {
-					pc++;
-				}
-			} else if (jop == 1) { //cmpijmp
+			if (jop == 1) { //cmpijmp
 				if ((cmp(iregs[rs], sImm3) & mask) == 0) {
 					if (imm2 == pc) { //halt
 						fprintf(stderr, "\n%lld instr.\n", count - 1);
@@ -128,57 +148,37 @@ int main(int argc, char **argv) {
 				}
 			} else if (jop == 3) { //jr
 				pc = iregs[rs];
+			} else if (jop == 0) { //cmpjmp
+				if ((cmp(iregs[rs], iregs[rt]) & mask) == 0) {
+					pc = imm2;
+				} else {
+					pc++;
+				}
 			} else {
 				ERROR
 			}
-		} else if (unitop == 4) {
-			//FPU
-			if (op == 0) { //fadd
-				fregs[rd] = fabsneg(ftoi(itof(fregs[rs]) + itof(fregs[rt])), subop);
+		} else if (unitop == 0) {
+			//ALU
+			if (op == 0) { //li
+				iregs[rd] = imm;
 				pc++;
-			} else if (op == 1) { //fsub
-				fregs[rd] = fabsneg(ftoi(itof(fregs[rs]) - itof(fregs[rt])), subop);
+			} else if (op == 4) { //mov
+				iregs[rd] = iregs[rs];
 				pc++;
-			} else if (op == 2) { //fmul
-				fregs[rd] = fabsneg(ftoi(itof(fregs[rs]) * itof(fregs[rt])), subop);
+			} else if (op == 1) { //addi
+				iregs[rd] = iregs[rs] + imm;
 				pc++;
-			} else if (op == 3) { //finv
-				fregs[rd] = fabsneg(ftoi(1.0f / itof(fregs[rs])), subop);
+			} else if (op == 3) { //jal
+				iregs[rd] = pc + 1;
+				pc = imm;
+			} else if (op == 2) { //subi
+				iregs[rd] = iregs[rs] - imm;
 				pc++;
-			} else if (op == 4) { //fsqrt
-				fregs[rd] = fabsneg(ftoi(sqrtf(itof(fregs[rs]))), subop);
+			} else if (op == 5) { //add
+				iregs[rd] = iregs[rs] + iregs[rt];
 				pc++;
-			} else if (op == 5) { //fmov
-				fregs[rd] = fabsneg(fregs[rs], subop);
-				pc++;
-			} else {
-				ERROR
-			}
-		} else if (unitop == 2) {
-			//LOADSTORE
-			if (op == 0) { //load
-				iregs[rd] = mem[iregs[rs] + sImm];
-				pc++;
-			} else if (op == 1) { //loadr
-				iregs[rd] = mem[iregs[rs] + iregs[rt]];
-				pc++;
-			} else if (op == 2) { //store
-				mem[iregs[rs] + sImm2] = iregs[rt];
-				pc++;
-			} else if (op == 4) { //fload
-				fregs[rd] = mem[iregs[rs] + sImm];
-				pc++;
-			} else if (op == 5) { //floadr
-				fregs[rd] = mem[iregs[rs] + iregs[rt]];
-				pc++;
-			} else if (op == 6) { //fstore
-				mem[iregs[rs] + sImm2] = fregs[rt];
-				pc++;
-			} else if (op == 3) { //imovf
-				fregs[rd] = iregs[rt];
-				pc++;
-			} else if (op == 7) { //fmovi
-				iregs[rd] = fregs[rt];
+			} else if (op == 6) { //sub
+				iregs[rd] = iregs[rs] - iregs[rt];
 				pc++;
 			} else {
 				ERROR
