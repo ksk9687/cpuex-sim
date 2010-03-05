@@ -1,6 +1,7 @@
 package cpu;
 
 import static java.lang.Math.*;
+import static java.util.Arrays.*;
 import static util.Utils.*;
 import java.awt.*;
 import java.awt.event.*;
@@ -217,6 +218,23 @@ public abstract class CPU {
 		@Override
 		protected void end(int pc) {
 			data[pc] += clock - c;
+		}
+		
+	}
+	
+	protected class LengthData extends Data {
+		
+		protected LengthData() {
+			super("Length");
+			fill(data, 1);
+		}
+		
+		@Override
+		protected void begin() {
+		}
+		
+		@Override
+		protected void end(int pc) {
 		}
 		
 	}
@@ -562,14 +580,18 @@ public abstract class CPU {
 	//Stat
 	protected class StatView extends SimView {
 		
+		protected Data[] data = new Data[CPU.this.data.length + 1];
 		protected DefaultTableModel tableModel;
 		protected JTable table;
 		protected String[] label = {"Name", "Count", "", ""};
 		protected String[][] field = new String[prog.names.length][4];
 		protected int data1 = 0, data2 = 1 % data.length;
+		protected LengthData lData = new LengthData();
 		
 		protected StatView() {
 			super("Stat");
+			for (int i = 0; i < data.length - 1; i++) data[i] = CPU.this.data[i];
+			data[data.length - 1] = lData;
 			for (int i = 0; i < prog.names.length; i++) {
 				field[i][0] = prog.names[i];
 			}

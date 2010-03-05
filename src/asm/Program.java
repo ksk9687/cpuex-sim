@@ -1,5 +1,7 @@
 package asm;
 
+import static java.util.Arrays.*;
+
 public class Program {
 	
 	public String[] lines;
@@ -16,6 +18,11 @@ public class Program {
 		this.ids = ids;
 		this.begin = begin;
 		this.end = end;
+		String[] names2 = names.clone();
+		sort(names);
+		for (int i = 0; i < ids.length; i++) {
+			ids[i] = binarySearch(names, names2[ids[i]]);
+		}
 	}
 	
 }

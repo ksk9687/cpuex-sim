@@ -55,15 +55,23 @@
 .define { write %iReg, %iReg } { write %1 %2 }
 
 #疑似命令
+.define { add %iReg, -%Imm, %iReg } { sub %1, %2, %3 }
+.define { sub %iReg, -%Imm, %iReg } { add %1, %2, %3 }
 .define { sll %iReg, %iReg } { add %1, %1, %2 }
 .define { neg %iReg, %iReg } { sub $i0, %1, %2 }
-.define { b %Imm } { cmpjmp 0, $i0, $i0, %1 }
+.define { b %Imm } { cmpjmp 0, $i0, 0, %1 }
 .define { be %s, %s, %Imm } { cmpjmp 5, %1, %2, %3 }
 .define { bne %s, %s, %Imm } { cmpjmp 2, %1, %2, %3 }
 .define { bl %s, %s, %Imm } { cmpjmp 6, %1, %2, %3 }
 .define { ble %s, %s, %Imm } { cmpjmp 4, %1, %2, %3 }
 .define { bg %s, %s, %Imm } { cmpjmp 3, %1, %2, %3 }
 .define { bge %s, %s, %Imm } { cmpjmp 1, %1, %2, %3 }
+.define { be %s, %Imm, %Imm } { cmpjmp 5, %1, %2, %3 }
+.define { bne %s, %Imm, %Imm } { cmpjmp 2, %1, %2, %3 }
+.define { bl %s, %Imm, %Imm } { cmpjmp 6, %1, %2, %3 }
+.define { ble %s, %Imm, %Imm } { cmpjmp 4, %1, %2, %3 }
+.define { bg %s, %Imm, %Imm } { cmpjmp 3, %1, %2, %3 }
+.define { bge %s, %Imm, %Imm } { cmpjmp 1, %1, %2, %3 }
 .define { load [%iReg - %Imm], %s } { load [%1 + -%2], %3}
 .define { load [%iReg], %s } { load [%1 + 0], %2 }
 .define { load [%Imm], %s } { load [$i0 + %1], %2 }
@@ -77,6 +85,8 @@
 .define { store %s, [%Imm + %Imm] } { store %1, [%{ %2 + %3 }] }
 .define { store %s, [%Imm - %Imm] } { store %1, [%{ %2 - %3 }] }
 .define { halt } { b %pc }
+.define { call %Imm } { jal %1, $ra }
+.define { ret } { jr $ra }
 
 #スタックとヒープの初期化($hp=0x4000,$sp=0x20000)
 	li      0, $i0
@@ -86,7 +96,7 @@
 	sll     $hp, $sp
 	sll     $sp, $sp
 	sll     $sp, $sp
-	jal     min_caml_main, $ra
+	call    min_caml_main
 	halt
 
 ######################################################################
