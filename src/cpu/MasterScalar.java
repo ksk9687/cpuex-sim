@@ -96,6 +96,8 @@ public class MasterScalar extends CPU36 {
 			return typeI(3, 6, 0, imm(p, 8, false), 0);
 		} else if (op.equals("nop")) {
 			return typeI(5, 7, 0, 0, 0);
+		} else if (op.equals("break")) {
+			return typeI(7, 0, 0, 0, 0);
 		}
 		return super.getBinary(op, p);
 	}
@@ -279,6 +281,9 @@ public class MasterScalar extends CPU36 {
 			} else {
 				super.step(ope);
 			}
+		} else if (unitop == 7) {
+			changePC(pc + 1);
+			throw new ExecuteException("Break!");
 		} else {
 			super.step(ope);
 		}

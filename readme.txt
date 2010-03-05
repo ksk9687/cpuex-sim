@@ -38,9 +38,7 @@ jmpやliなどの即値としてラベルを指定することができる
 .count name で次の命令に名前nameを付け、その実行数をカウントする
 %pcでpcの値に、 %{ exp } でexpを計算した値に、それぞれ置き換わる (例: li $ra %{ %pc + 2 } )
 
-*デバッグ用CPU
--cpu Scalar.Debugを指定すると、デバッグ用命令が使用できる
-アセンブラの場合は次の命令が使用可能
+*デバッグ
 break	ブレークポイント(GUIモードでのみサポート)
 MinCamlの場合はdebug.sとくっつけることで次の外部関数が使用できる
 val break : unit -> unit
