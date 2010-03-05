@@ -277,7 +277,6 @@ public abstract class CPU {
 	
 	//View
 	public String[] getViews() {
-		if (count == null) return new String[] {"Register", "Memory"};
 		return new String[] {"Source", "Register", "Memory", "Stat"};
 	}
 	

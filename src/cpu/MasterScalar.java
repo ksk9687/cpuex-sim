@@ -151,20 +151,20 @@ public class MasterScalar extends CPU36 {
 			}
 		} else if (unitop == 6) {
 			//JMP
-			int op = getBits(ope, 32, 31);
+			int jop = getBits(ope, 32, 31);
 			int mask = getBits(ope, 30, 28);
 			int rs = getBits(ope, 27, 22);
 			int rt = getBits(ope, 15, 10);
 			int imm2 = getBits(ope, 21, 18) << 10 | getBits(ope, 9, 0);
 			int imm3 = getBits(ope, 17, 10);
-			if (op == 0) { //cmpjmp
+			if (jop == 0) { //cmpjmp
 				int cond = cmp(regs[rs], regs[rt]);
 				if ((cond & mask) == 0) {
 					changePC(imm2);
 				} else {
 					changePC(pc + 1);
 				}
-			} else if (op == 1) { //cmpijmp
+			} else if (jop == 1) { //cmpijmp
 				int cond = cmp(regs[rs], signExt(imm3, 8));
 				if ((cond & mask) == 0) {
 					if (imm2 == pc) { //halt
@@ -176,7 +176,7 @@ public class MasterScalar extends CPU36 {
 				} else {
 					changePC(pc + 1);
 				}
-			} else if (op == 2) { //fcmpjmp
+			} else if (jop == 2) { //fcmpjmp
 				rs += 64;
 				rt += 64;
 				int cond = fcmp(regs[rs], regs[rt]);
@@ -185,7 +185,7 @@ public class MasterScalar extends CPU36 {
 				} else {
 					changePC(pc + 1);
 				}
-			} else if (op == 3) { //jr
+			} else if (jop == 3) { //jr
 				changePC(regs[rs]);
 			} else {
 				super.step(ope);
@@ -513,7 +513,7 @@ public class MasterScalar extends CPU36 {
 		
 		@Override
 		protected Data[] getData() {
-			return new Data[0];
+			return new Data[] {new InstructionData()};
 		}
 		
 	}

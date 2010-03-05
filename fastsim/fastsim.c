@@ -4,6 +4,8 @@
 
 #define WRITE
 
+typedef long long ll;
+
 typedef union {
 	float f;
 	int i;
@@ -12,19 +14,32 @@ typedef union {
 inline int ftoi(float f) { FI fi; fi.f = f; return fi.i; }
 inline float itof(int i) { FI fi; fi.i = i; return fi.f; }
 
-#define opecode (op >> 26)
-#define rs (op >> 20 & 63)
-#define rt (op >> 14 & 63)
-#define rd (op >> 8 & 63)
-#define imm (op & ((1 << 14) - 1))
-#define sImm ((int)((op & (1 << 13)) ? (((1 << 18) - 1) << 14 | op) : imm))
+#define unitop (ope >> 33)
+#define op (ope >> 30 & 7)
+#define jop (ope >> 31 & 3)
+#define subop (ope >> 28 & 3)
+#define mask (ope >> 28 & 7)
+#define rs (ope >> 22 & 63)
+#define rt (ope >> 10 & 63)
+#define rd (ope >> 16 & 63)
+#define imm (ope & 16383)
+#define sImm ((ope >> 13 & 1) ? -8192 | imm : imm)
+#define imm2 ((ope >> 18 & 15) << 10 | (ope & 1023))
+#define sImm2 ((ope >> 21 & 1) ? -8192 | imm2 : imm2)
+#define imm3 (ope >> 10 & 255)
+#define sImm3 ((ope >> 17 & 1) ? -128 | imm3 : imm3)
+#define cmp(a, b) (a > b ? 4 : a == b ? 2 : 1)
+#define fabsneg(a, b) (b == 0 ? a : b == 2 ? (a & ~(1 << 31)) : (a ^ (1 << 31)))
+#define ledout(a) fprintf(stderr, "LED: 0x%X, %d, %.6E\n", a, a, itof(a))
+#define ERROR fprintf(stderr, "Error!!!\npc = %d\n", pc); return 1;
 
-int regs[64];
-int mems[1 << 20];
-int calls[1000];
+int iregs[64];
+int fregs[64];
+int mem[1 << 17];
+ll bin[1 << 14];
 
-int readInt(FILE *f) {
-	int i, res = 0;
+unsigned int readInt(FILE *f) {
+	unsigned int i, res = 0;
 	for (i = 0; i < 4; i++) {
 		res = res << 8 | fgetc(f);
 	}
@@ -34,16 +49,23 @@ int readInt(FILE *f) {
 void load(char *name) {
 	int i, size;
 	FILE *f = fopen(name, "r");
+	size = readInt(f) / 3 * 2;
+	for (i = 0; i < size; i += 2) {
+		ll a = readInt(f);
+		ll b = readInt(f);
+		ll c = readInt(f);
+		bin[256 + i] = a << 28 | b >> 4;
+		bin[256 + i + 1] = (b & 15) << 32 | c;
+	}
 	size = readInt(f);
 	for (i = 0; i < size; i++) {
-		mems[i] = readInt(f);
+		mem[i] = readInt(f);
 	}
 	fclose(f);
 }
 
 int main(int argc, char **argv) {
-	int pc = 0;
-    int cond = 0, cp = 0;
+	int pc = 256;
 	long long count;
 	int writeBytes = 0;
 	if (argc != 2) {
@@ -52,101 +74,145 @@ int main(int argc, char **argv) {
 	}
 	load(argv[1]);
 	for (count = 1; ; count++) {
-		unsigned int op = mems[pc];
-		if (opecode == 030) { //load
-			regs[rt] = mems[regs[rs] + sImm];
-			pc++;
-		} else if (opecode == 070) { //jmp
-			if (cond & rs) {
+		ll ope = bin[pc];
+		if (unitop == 0) {
+			//ALU
+			if (op == 0) { //li
+				iregs[rd] = imm;
+				pc++;
+			} else if (op == 1) { //addi
+				iregs[rd] = iregs[rs] + imm;
+				pc++;
+			} else if (op == 2) { //subi
+				iregs[rd] = iregs[rs] - imm;
+				pc++;
+			} else if (op == 4) { //mov
+				iregs[rd] = iregs[rs];
+				pc++;
+			} else if (op == 5) { //add
+				iregs[rd] = iregs[rs] + iregs[rt];
+				pc++;
+			} else if (op == 6) { //sub
+				iregs[rd] = iregs[rs] - iregs[rt];
+				pc++;
+			} else if (op == 3) { //jal
+				iregs[rd] = pc + 1;
+				pc = imm;
+			} else {
+				ERROR
+			}
+		} else if (unitop == 6) {
+			//JMP
+			if (jop == 0) { //cmpjmp
+				if ((cmp(iregs[rs], iregs[rt]) & mask) == 0) {
+					pc = imm2;
+				} else {
+					pc++;
+				}
+			} else if (jop == 1) { //cmpijmp
+				if ((cmp(iregs[rs], sImm3) & mask) == 0) {
+					if (imm2 == pc) { //halt
+						fprintf(stderr, "\n%lld instr.\n", count - 1);
+						return 0;
+					} else {
+						pc = imm2;
+					}
+				} else {
+					pc++;
+				}
+			} else if (jop == 2) { //fcmpjmp
+				if ((cmp(itof(fregs[rs]), itof(fregs[rt])) & mask) == 0) {
+					pc = imm2;
+				} else {
+					pc++;
+				}
+			} else if (jop == 3) { //jr
+				pc = iregs[rs];
+			} else {
+				ERROR
+			}
+		} else if (unitop == 4) {
+			//FPU
+			if (op == 0) { //fadd
+				fregs[rd] = fabsneg(ftoi(itof(fregs[rs]) + itof(fregs[rt])), subop);
+				pc++;
+			} else if (op == 1) { //fsub
+				fregs[rd] = fabsneg(ftoi(itof(fregs[rs]) - itof(fregs[rt])), subop);
+				pc++;
+			} else if (op == 2) { //fmul
+				fregs[rd] = fabsneg(ftoi(itof(fregs[rs]) * itof(fregs[rt])), subop);
+				pc++;
+			} else if (op == 3) { //finv
+				fregs[rd] = fabsneg(ftoi(1.0f / itof(fregs[rs])), subop);
+				pc++;
+			} else if (op == 4) { //fsqrt
+				fregs[rd] = fabsneg(ftoi(sqrtf(itof(fregs[rs]))), subop);
+				pc++;
+			} else if (op == 5) { //fmov
+				fregs[rd] = fabsneg(fregs[rs], subop);
 				pc++;
 			} else {
-				pc = imm;
+				ERROR
 			}
-		} else if (opecode == 003) { //cmpi
-			cond = regs[rs] > sImm ? 4 : regs[rs] == sImm ? 2 : 1;
-			pc++;
-		} else if (opecode == 022) { //fmul
-			regs[rd] = ftoi(itof(regs[rs]) * itof(regs[rt]));
-			pc++;
-		} else if (opecode == 000) { //li
-			regs[rt] = imm;
-			pc++;
-		} else if (opecode == 025) { //fcmp
-			cond = itof(regs[rs]) > itof(regs[rt]) ? 4 : itof(regs[rs]) == itof(regs[rt]) ? 2 : 1;
-			pc++;
-		} else if (opecode == 020) { //fadd
-			regs[rd] = ftoi(itof(regs[rs]) + itof(regs[rt]));
-			pc++;
-		} else if (opecode == 021) { //fsub
-			regs[rd] = ftoi(itof(regs[rs]) - itof(regs[rt]));
-			pc++;
-		} else if (opecode == 032) { //store
-			mems[regs[rs] + sImm] = regs[rt];
-			pc++;
-		} else if (opecode == 031) { //loadr
-			regs[rd] = mems[regs[rs] + regs[rt]];
-			pc++;
-		} else if (opecode == 001) { //addi
-			regs[rt] = regs[rs] + sImm;
-			pc++;
-		} else if (opecode == 005) { //mov
-			regs[rt] = regs[rs];
-			pc++;
-		} else if (opecode == 006) { //fabs
-			regs[rd] = ftoi(fabsf(itof(regs[rs])));
-			pc++;
-		} else if (opecode == 071) { //call
-			calls[cp++] = pc + 1;
-			pc = imm;
-		} else if (opecode == 072) { //ret
-			pc = calls[--cp];
-		} else if (opecode == 010) { //add
-			regs[rd] = regs[rs] + regs[rt];
-			pc++;
-		} else if (opecode == 011) { //sub
-			regs[rd] = regs[rs] - regs[rt];
-			pc++;
-		} else if (opecode == 002) { //sll
-			regs[rt] = regs[rs] << imm;
-			pc++;
-		} else if (opecode == 012) { //cmp
-			cond = regs[rs] > regs[rt] ? 4 : regs[rs] == regs[rt] ? 2 : 1;
-			pc++;
-		} else if (opecode == 023) { //finv
-			regs[rd] = ftoi(1.0f / itof(regs[rs]));
-			pc++;
-		} else if (opecode == 024) { //fsqrt
-			regs[rd] = ftoi(sqrtf(itof(regs[rs])));
-			pc++;
-		} else if (opecode == 007) { //fneg
-			regs[rd] = ftoi(-(itof(regs[rs])));
-			pc++;
-		} else if (opecode == 040) { //hsread
-			//Not implemented
-            pc++;
-		} else if (opecode == 041) { //hswrite
-        	//Not implemented
-            pc++;
-		} else if (opecode == 050) { //read
-			regs[rt] = getchar();
-			pc++;
-		} else if (opecode == 051) { //write
-			putchar(regs[rs]);
-			regs[rt] = 0;
+		} else if (unitop == 2) {
+			//LOADSTORE
+			if (op == 0) { //load
+				iregs[rd] = mem[iregs[rs] + sImm];
+				pc++;
+			} else if (op == 1) { //loadr
+				iregs[rd] = mem[iregs[rs] + iregs[rt]];
+				pc++;
+			} else if (op == 2) { //store
+				mem[iregs[rs] + sImm2] = iregs[rt];
+				pc++;
+			} else if (op == 4) { //fload
+				fregs[rd] = mem[iregs[rs] + sImm];
+				pc++;
+			} else if (op == 5) { //floadr
+				fregs[rd] = mem[iregs[rs] + iregs[rt]];
+				pc++;
+			} else if (op == 6) { //fstore
+				mem[iregs[rs] + sImm2] = fregs[rt];
+				pc++;
+			} else if (op == 3) { //imovf
+				fregs[rd] = iregs[rt];
+				pc++;
+			} else if (op == 7) { //fmovi
+				iregs[rd] = fregs[rt];
+				pc++;
+			} else {
+				ERROR
+			}
+		} else if (unitop == 3) {
+			//IO
+			if (op == 0) { //read
+				iregs[rd] = getchar();
+				pc++;
+			} else if (op == 2) { //write
+				putchar(iregs[rs]);
+				iregs[rd] = 0;
 #ifdef WRITE
-			fprintf(stderr, "\rwrite %d bytes", ++writeBytes);
+				fprintf(stderr, "\rwrite %d bytes", ++writeBytes);
 #endif
-			pc++;
-		} else if (opecode == 052) { //ledout
-			pc++;
-		} else if (opecode == 060) { //nop
-			pc++;
-		} else if (opecode == 061) { //halt
-			fprintf(stderr, "\n%lld instr.\n", count - 1);
-			return 0;
+				pc++;
+			} else if (op == 4) { //ledout
+				ledout(iregs[rs]);
+				pc++;
+			} else if (op == 6) { //ledouti
+				ledout((int)imm);
+				pc++;
+			} else {
+				ERROR
+			}
+		} else if (unitop == 5) {
+			//NOP
+			if (op == 7) { // nop
+				pc++;
+			} else {
+				ERROR
+			}
 		} else {
-			fprintf(stderr, "Error!!!\n");
-			return 1;
+			ERROR
 		}
 	}
 }

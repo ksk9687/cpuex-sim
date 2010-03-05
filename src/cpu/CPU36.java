@@ -44,7 +44,7 @@ public abstract class CPU36 extends CPU {
 			if (OFFSET + i < prog.ss.length) data1 = prog.ss[OFFSET + i].binary;
 			if (OFFSET + i + 1 < prog.ss.length) data2 = prog.ss[OFFSET + i + 1].binary;
 			out.writeInt(getBits(data1, 35, 28));
-			out.writeInt(getBits(data1, 27, 0) << 8 | getBits(data2, 35, 32));
+			out.writeInt(getBits(data1, 27, 0) << 4 | getBits(data2, 35, 32));
 			out.writeInt(getBits(data2, 31, 0));
 		}
 		out.writeInt(prog.ss.length);
