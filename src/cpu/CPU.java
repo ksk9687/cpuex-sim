@@ -398,6 +398,7 @@ public abstract class CPU {
 						refresh();
 					} else if (col == 0) {
 						atype = (atype + 1) % 2;
+						refresh();
 					}
 				}
 			});

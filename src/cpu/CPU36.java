@@ -2,7 +2,6 @@ package cpu;
 
 import static util.Utils.*;
 import java.io.*;
-import java.util.*;
 import asm.*;
 
 public abstract class CPU36 extends CPU {
@@ -56,12 +55,12 @@ public abstract class CPU36 extends CPU {
 	
 	@Override
 	public void vhdlOut(Program prog, PrintWriter out) {
-		char[] cs = new char[36];
-		Arrays.fill(cs, '0');
-		String s0 = new String(cs);
-		for (int i = OFFSET; i < prog.ss.length; i++) {
-			String s = Long.toBinaryString(prog.ss[i].binary);
-			out.printf("%s,%n", s0.substring(s.length()) + s);
+		char[] cs = new char[72];
+		for (int i = OFFSET; i < prog.ss.length; i += 2) {
+			long a = prog.ss[i].binary, b = i + 1 < prog.ss.length ? prog.ss[i + 1].binary : 0;
+			for (int j = 0; j < 36; j++) cs[j] = (char)('0' + (a >> (35 - j) & 1));
+			for (int j = 0; j < 36; j++) cs[36 + j] = (char)('0' + (b >> (35 - j) & 1));
+			out.printf("%s%c%n", String.valueOf(cs), i + 2 >= prog.ss.length ? ';' : ',');
 		}
 		out.close();
 	}

@@ -25,7 +25,7 @@ public class MasterScalar extends CPU36 {
 	}
 	
 	protected static long typeM(long unitop, long op, long rs, long imm2, long rt) {
-		return unitop << 33 | op << 30 | rs << 22 | (imm2 >> 10 & 0xf) << 18 | rt << 10 | (imm2 & ((1 << 10) - 1));
+		return unitop << 33 | op << 30 | rs << 22 | (imm2 >> 10 & 0xf) << 18 | rt << 10 | (imm2 & ((1 << 10) - 1)) | 1L << 28;
 	}
 	
 	protected static long typeJ(long unitop, long op, long mask, long rs, long rt, long imm2) {
@@ -75,7 +75,7 @@ public class MasterScalar extends CPU36 {
 		} else if (op.equals("store")) {
 			return typeM(2, 2, ireg(p), imm(p, 14, true), ireg(p));
 		} else if (op.equals("store_inst")) {
-			return typeM(2, 2, ireg(p), imm(p, 14, true), ireg(p)) | 1L << 29;
+			return typeM(2, 2, ireg(p), 0, ireg(p)) | 1L << 29;
 		} else if (op.equals("fload")) {
 			return typeI(2, 4, ireg(p), imm(p, 14, true), freg(p));
 		} else if (op.equals("floadr")) {
@@ -87,13 +87,13 @@ public class MasterScalar extends CPU36 {
 		} else if (op.equals("fmovi")) {
 			return typeR(2, 7, 0, freg(p), ireg(p));
 		} else if (op.equals("read")) {
-			return typeI(3, 0, 0, 0, ireg(p));
+			return typeI(3, 0, 0, 0, ireg(p)) | 1L << 28;
 		} else if (op.equals("write")) {
-			return typeI(3, 2, ireg(p), 0, ireg(p));
+			return typeI(3, 2, ireg(p), 0, ireg(p)) | 1L << 28;
 		} else if (op.equals("ledout")) {
-			return typeI(3, 4, ireg(p), 0, 0);
+			return typeI(3, 4, ireg(p), 0, ireg(p)) | 1L << 28;
 		} else if (op.equals("ledouti")) {
-			return typeI(3, 6, 0, imm(p, 8, false), 0);
+			return typeI(3, 6, 0, imm(p, 8, false), ireg(p)) | 1L << 28;
 		} else if (op.equals("nop")) {
 			return typeI(5, 7, 0, 0, 0);
 		} else if (op.equals("break")) {
