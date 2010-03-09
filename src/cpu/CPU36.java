@@ -7,7 +7,7 @@ import asm.*;
 public abstract class CPU36 extends CPU {
 	
 	public CPU36(double hz, int memorySize, int registerSize) {
-		super(hz, memorySize, registerSize * 2, 256);
+		super(hz, memorySize, registerSize * 2, 256, true);
 		for (int i = 0; i < registerSize; i++) {
 			REGISTERNAME[i] = "$i" + i;
 			REGISTERNAME[registerSize + i] = "$f" + i;
@@ -46,9 +46,9 @@ public abstract class CPU36 extends CPU {
 			out.writeInt(getBits(data1, 27, 0) << 4 | getBits(data2, 35, 32));
 			out.writeInt(getBits(data2, 31, 0));
 		}
-		out.writeInt(prog.ss.length);
-		for (Statement s : prog.ss) {
-			out.writeInt((int)s.binary);
+		out.writeInt(prog.data.length);
+		for (int i : prog.data) {
+			out.writeInt(i);
 		}
 		out.close();
 	}

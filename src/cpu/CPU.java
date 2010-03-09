@@ -32,7 +32,7 @@ public abstract class CPU {
 		}
 	}
 	
-	public CPU(double hz, int memorySize, int registerSize, int offset) {
+	public CPU(double hz, int memorySize, int registerSize, int offset, boolean hasData) {
 		Hz = hz;
 		MEMORYSIZE = memorySize;
 		REGISTERSIZE = registerSize;
@@ -41,10 +41,12 @@ public abstract class CPU {
 		for (int i = 0; i < REGISTERSIZE; i++) {
 			REGISTERNAME[i] = "$" + i;
 		}
+		HAS_DATA = hasData;
 	}
 	
 	//Asm
 	public final int OFFSET;
+	public final boolean HAS_DATA;
 	
 	protected int imm(Parser p, int len, boolean signExt) {
 		int i = p.nextImm();
@@ -108,9 +110,17 @@ public abstract class CPU {
 		regs = new int[REGISTERSIZE];
 		mems = new int[MEMORYSIZE];
 		bin = new long[progSize];
+		if (HAS_DATA) {
+			for (int i = 0; i < prog.data.length; i++) {
+				mems[i] = prog.data[i];
+			}
+		} else {
+			for (int i = 0; i < progSize; i++) {
+				mems[i] = (int)prog.ss[i].binary;
+			}
+		}
 		for (int i = 0; i < progSize; i++) {
 			bin[i] = prog.ss[i].binary;
-			mems[i] = (int)bin[i];
 		}
 		data = getData();
 		for (Data d : data) {

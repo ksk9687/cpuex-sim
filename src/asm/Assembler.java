@@ -84,6 +84,7 @@ public class Assembler {
 		Map<String, Integer> labels = new HashMap<String, Integer>();
 		Map<String, String[]> map = new HashMap<String, String[]>();
 		List<Statement> list = new ArrayList<Statement>();
+		List<Statement> list2 = new ArrayList<Statement>();
 		LinkedList<Define> defs = new LinkedList<Define>();
 		Map<String, Integer> namemap = new HashMap<String, Integer>();
 		List<String> names = new ArrayList<String>();
@@ -94,20 +95,12 @@ public class Assembler {
 		Statement[] ss = lex(lines);
 		for (int i = 0; i < cpu.OFFSET; i++) list.add(new Statement(-1, ""));
 		for (Statement s : ss) {
-			for (String label : s.labels) {
-				if (labels.containsKey(label)) {
-					throw new AssembleException(s.createMessage(String.format("%s: ラベルが複数回出現", label)));
-				}
-				labels.put(label, list.size());
-			}
+			int pos = list.size();
 			s.replace(map);
 			try {
 				Parser p = new Parser(s.tokens);
 				String t = p.next();
 				if (t.equals(".define")) {
-					if (s.labels.length > 0) {
-						throw new AssembleException(s.createMessage("ラベル位置が不正です"));
-					}
 					if (!p.crt().equals("{")) {
 						map.put(p.next(), p.rest());
 					} else {
@@ -120,7 +113,12 @@ public class Assembler {
 					if (d <= 0 || d >= 1 << 20) {
 						throw new ParseException();
 					}
-					list.addAll(nCopies(d, s));
+					if (cpu.HAS_DATA) {
+						pos = list2.size();
+						list2.addAll(nCopies(d, s));
+					} else {
+						list.addAll(nCopies(d, s));
+					}
 				} else if (t.equals(".begin")) {
 					String id = p.next();
 					p.end();
@@ -162,11 +160,24 @@ public class Assembler {
 					ids.add(i);
 					begin.add(list.size());
 					end.add(list.size() + 1);
+				} else if (t.equals(".int") || t.equals(".float")) {
+					if (cpu.HAS_DATA) {
+						pos = list2.size();
+						list2.add(s);
+					} else {
+						list.add(s);
+					}
 				} else {
 					list.add(s);
 				}
 			} catch (ParseException e) {
 				throw new AssembleException(s.createMessage("マクロ引数が不正です"));
+			}
+			for (String label : s.labels) {
+				if (labels.containsKey(label)) {
+					throw new AssembleException(s.createMessage(String.format("%s: ラベルが複数回出現", label)));
+				}
+				labels.put(label, pos);
 			}
 		}
 		for (int i : last) if (i >= 0) throw new AssembleException("beginとendの対応が取れていません");
@@ -216,7 +227,28 @@ public class Assembler {
 			}
 			pc++;
 		}
-		return new Program(lines, ss, names.toArray(new String[0]), toints(ids), toints(begin), toints(end));
+		int[] data = new int[list2.size()];
+		for (int i = 0; i < data.length; i++) {
+			Statement s = list2.get(i);
+			replace(s.tokens, labels);
+			try {
+				Parser p = new Parser(s.tokens);
+				String t = p.next();
+				if (t.equals(".int")) {
+					data[i] = p.nextImm();
+					p.end();
+				} else if (t.equals(".float")) {
+					try {
+						data[i] = ftoi(Float.parseFloat(s.str.substring(".float".length()).trim()));
+					} catch (NumberFormatException e) {
+						throw new ParseException();
+					}
+				}
+			} catch (ParseException e) {
+				throw new AssembleException(s.createMessage("マクロ引数が不正です"));
+			}
+		}
+		return new Program(lines, ss, names.toArray(new String[0]), toints(ids), toints(begin), toints(end), data);
 	}
 	
 }
