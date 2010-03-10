@@ -7,7 +7,7 @@ import asm.*;
 public abstract class CPU32 extends CPU {
 	
 	public CPU32(double hz, int memorySize, int registerSize) {
-		super(hz, memorySize, registerSize, 0, false);
+		super(hz, memorySize, registerSize, 1 << 14, 0, false);
 	}
 	
 	//Asm

@@ -7,7 +7,7 @@ import asm.*;
 public abstract class CPU36 extends CPU {
 	
 	public CPU36(double hz, int memorySize, int registerSize) {
-		super(hz, memorySize, registerSize * 2, 256, true);
+		super(hz, memorySize, registerSize * 2, 1 << 13, 256, true);
 		for (int i = 0; i < registerSize; i++) {
 			REGISTERNAME[i] = "$i" + i;
 			REGISTERNAME[registerSize + i] = "$f" + i;
@@ -55,6 +55,8 @@ public abstract class CPU36 extends CPU {
 	
 	@Override
 	public void vhdlOut(Program prog, PrintWriter out) {
+		out.println("memory_initialization_radix=2;");
+		out.println("memory_initialization_vector=");
 		char[] cs = new char[72];
 		for (int i = OFFSET; i < prog.ss.length; i += 2) {
 			long a = prog.ss[i].binary, b = i + 1 < prog.ss.length ? prog.ss[i + 1].binary : 0;
@@ -63,6 +65,28 @@ public abstract class CPU36 extends CPU {
 			out.printf("%s%c%n", String.valueOf(cs), i + 2 >= prog.ss.length ? ';' : ',');
 		}
 		out.close();
+	}
+	
+	@Override
+	protected void init() {
+		store_inst_p = 0;
+		super.init();
+	}
+	
+	private int store_inst_p;
+	
+	protected void store_inst(int addr, int i) {
+		long b = i & ((1L << 32) - 1);
+		if (store_inst_p == 0) {
+			bin[addr << 1] = bin[addr << 1 | 1] = 0;
+			bin[addr << 1] |= b << 28;
+		} else if (store_inst_p == 1) {
+			bin[addr << 1] |= b >> 4;
+			bin[addr << 1 | 1] |= (b & 15) << 32;
+		} else {
+			bin[addr << 1 | 1] |= b;
+		}
+		store_inst_p = (store_inst_p + 1) % 3;
 	}
 	
 }

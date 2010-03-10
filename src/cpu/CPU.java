@@ -32,10 +32,11 @@ public abstract class CPU {
 		}
 	}
 	
-	public CPU(double hz, int memorySize, int registerSize, int offset, boolean hasData) {
+	public CPU(double hz, int memorySize, int registerSize, int binSize, int offset, boolean hasData) {
 		Hz = hz;
 		MEMORYSIZE = memorySize;
 		REGISTERSIZE = registerSize;
+		BINSIZE = binSize;
 		OFFSET = offset;
 		REGISTERNAME = new String[REGISTERSIZE];
 		for (int i = 0; i < REGISTERSIZE; i++) {
@@ -45,7 +46,7 @@ public abstract class CPU {
 	}
 	
 	//Asm
-	public final int OFFSET;
+	public int OFFSET;
 	public final boolean HAS_DATA;
 	
 	protected int imm(Parser p, int len, boolean signExt) {
@@ -94,9 +95,9 @@ public abstract class CPU {
 	
 	//Sim
 	protected final double Hz;
+	protected final int BINSIZE;
 	protected Program prog;
 	protected long[] bin;
-	protected int progSize;
 	protected int pc;
 	protected long clock;
 	protected long instruction;
@@ -105,21 +106,20 @@ public abstract class CPU {
 	public final void init(Program prog, boolean out) {
 		this.prog = prog;
 		this.out = out;
-		progSize = prog.ss.length;
 		pc = OFFSET;
 		regs = new int[REGISTERSIZE];
 		mems = new int[MEMORYSIZE];
-		bin = new long[progSize];
+		bin = new long[BINSIZE];
 		if (HAS_DATA) {
 			for (int i = 0; i < prog.data.length; i++) {
 				mems[i] = prog.data[i];
 			}
 		} else {
-			for (int i = 0; i < progSize; i++) {
+			for (int i = 0; i < prog.ss.length; i++) {
 				mems[i] = (int)prog.ss[i].binary;
 			}
 		}
-		for (int i = 0; i < progSize; i++) {
+		for (int i = 0; i < prog.ss.length; i++) {
 			bin[i] = prog.ss[i].binary;
 		}
 		data = getData();
@@ -150,7 +150,7 @@ public abstract class CPU {
 	}
 	
 	protected void changePC(int newPC) {
-		if (newPC < 0 || newPC >= progSize) {
+		if (newPC < 0 || newPC >= BINSIZE) {
 			throw new ExecuteException(String.format("IllegalPC: %d", pc));
 		}
 		pc = newPC;
@@ -176,14 +176,14 @@ public abstract class CPU {
 		
 		protected Data(String name) {
 			this.name = name;
-			data = new long[progSize];
+			data = new long[BINSIZE];
 			sum = new long[prog.names.length];
 		}
 		
 		protected void calcSum() {
 			Arrays.fill(sum, 0);
-			long[] total = new long[progSize + 1];
-			for (int i = 0; i < progSize; i++) total[i + 1] = total[i] + data[i];
+			long[] total = new long[BINSIZE + 1];
+			for (int i = 0; i < BINSIZE; i++) total[i + 1] = total[i] + data[i];
 			for (int i = 0; i < prog.ids.length; i++) {
 				sum[prog.ids[i]] += total[prog.end[i]] - total[prog.begin[i]];
 			}
@@ -505,7 +505,7 @@ public abstract class CPU {
 				field[i][3] = "";
 				field[i][4] = "";
 			}
-			for (int i = 0; i < progSize; i++) if (prog.ss[i].lineID >= 0) {
+			for (int i = 0; i < prog.ss.length; i++) if (prog.ss[i].lineID >= 0) {
 				field[prog.ss[i].lineID][1] = "" + i;
 			}
 			tableModel = new DefaultTableModel();
@@ -514,7 +514,7 @@ public abstract class CPU {
 			table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
 				public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
 					super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-					if (prog.ss[pc].lineID == row) {
+					if (pc < prog.ss.length && prog.ss[pc].lineID == row) {
 						setBackground(table.getSelectionBackground());
 					} else if (isSelected) {
 						setBackground(table.getSelectionBackground());
@@ -542,7 +542,7 @@ public abstract class CPU {
 					StringWriter buf = new StringWriter();
 					PrintWriter out = new PrintWriter(buf);
 					String[] ss = prog.lines.clone();
-					for (int i = 0; i < progSize; i++) if (count.data[i] > 0) {
+					for (int i = 0; i < prog.ss.length; i++) if (count.data[i] > 0) {
 						StringBuilder s = new StringBuilder(String.format("%-40s# ", ss[prog.ss[i].lineID]));
 						for (Data d : data) s.append(String.format("| %,10d ", d.data[i]));
 						s.append('|');
@@ -566,7 +566,7 @@ public abstract class CPU {
 		public void refresh() {
 			label[3] = data[data1].name;
 			label[4] = data[data2].name;
-			for (int i = 0; i < progSize; i++) if (prog.ss[i].lineID >= 0) {
+			for (int i = 0; i < prog.ss.length; i++) if (prog.ss[i].lineID >= 0) {
 				field[prog.ss[i].lineID][3] = String.format("%,10d", data[data1].data[i]);
 				field[prog.ss[i].lineID][4] = String.format("%,10d", data[data2].data[i]);
 			}
@@ -580,7 +580,9 @@ public abstract class CPU {
 			table.getColumnModel().getColumn(4).setMinWidth(100);
 			table.getColumnModel().getColumn(4).setMaxWidth(100);
 			if (trackingPC) {
-				table.scrollRectToVisible(table.getCellRect(prog.ss[pc].lineID, 0, true));
+				if (pc < prog.ss.length && prog.ss[pc].lineID >= 0) {
+					table.scrollRectToVisible(table.getCellRect(prog.ss[pc].lineID, 0, true));
+				}
 			}
 			repaint();
 		}

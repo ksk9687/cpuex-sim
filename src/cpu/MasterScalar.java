@@ -107,7 +107,7 @@ public class MasterScalar extends CPU36 {
 	protected void init() {
 		super.init();
 		countOpe = new long[256];
-		dataSize = progSize;
+		dataSize = prog.data.length;
 		stackSize = heapSize = 0;
 		dataLoad = stackLoad = heapLoad = 0;
 		dataStore = stackStore = heapStore = 0;
@@ -232,9 +232,14 @@ public class MasterScalar extends CPU36 {
 			} else if (op == 1) { //loadr
 				regs[rd] = load(regs[rs] + regs[rt]);
 				changePC(pc + 1);
-			} else if (op == 2) { //store
-				store(regs[rs] + signExt(imm2, 14), regs[rt]);
-				changePC(pc + 1);
+			} else if (op == 2) {
+				if ((ope >> 29 & 1) != 0) { //store_inst
+					store_inst(regs[rs], regs[rt]);
+					changePC(pc + 1);
+				} else { //store
+					store(regs[rs] + signExt(imm2, 14), regs[rt]);
+					changePC(pc + 1);
+				}
 			} else if (op == 4) { //fload
 				rd += 64;
 				regs[rd] = load(regs[rs] + signExt(imm, 14));
@@ -481,7 +486,7 @@ public class MasterScalar extends CPU36 {
 	
 	protected void printStat() {
 		System.err.println();
-		System.err.printf("コード長:%d%n", progSize);
+		System.err.printf("コード長:%d%n", prog.ss.length);
 		System.err.println();
 		for (int level = 0; level < 3; level++) {
 			System.err.println("* InstructionCount" + "SML".charAt(level));

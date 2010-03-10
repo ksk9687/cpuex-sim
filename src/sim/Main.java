@@ -64,6 +64,7 @@ public class Main {
 		String cpuName = "";
 		boolean fillNop = false;
 		boolean noOutput = false;
+		boolean noOffset = false;
 		boolean ok = true;
 		try {
 			for (int i = 0; i < args.length; i++) {
@@ -87,6 +88,8 @@ public class Main {
 					simType = 2;
 				} else if (args[i].equals("-noOutput")) {
 					noOutput = true;
+				} else if (args[i].equals("-noOffset")) {
+					noOffset = true;
 				} else if (args[i].charAt(0) != '-') {
 					if (fileName != null) ok = false;
 					fileName = args[i];
@@ -104,6 +107,7 @@ public class Main {
 			System.exit(1);
 		}
 		CPU cpu = CPU.loadCPU(cpuName);
+		if (noOffset) cpu.OFFSET = 0;
 		String[] lines = readLines(openInputFile(fileName), encoding);
 		System.err.println("Assembling...");
 		Program prog = null;

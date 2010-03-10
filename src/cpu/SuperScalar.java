@@ -599,7 +599,7 @@ public class SuperScalar extends CPU32 {
 	
 	protected void printStat() {
 		System.err.println();
-		System.err.printf("コード長:%d%n", progSize);
+		System.err.printf("コード長:%d%n", prog.ss.length);
 		System.err.println();
 		System.err.println("* Time");
 		System.err.printf("| Total | %.3f |%n", clock / Hz);
