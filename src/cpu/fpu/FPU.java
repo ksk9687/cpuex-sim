@@ -7,14 +7,6 @@ package cpu.fpu;
  * CPU クラスがジェネリクスでそれらのどちらかを受け取るようにすれば良い感じだと思うんだけどな
  */
 
-import static java.lang.Math.abs;
-import static java.lang.Math.max;
-import static java.lang.Math.min;
-import static util.Utils.itof;
-
-
-
-
 public class FPU {
 	private static int downto(int a, int h, int l) {
 		int n = h - l + 1;

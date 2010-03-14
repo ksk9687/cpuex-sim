@@ -167,6 +167,13 @@ public class Assembler {
 					} else {
 						list.add(s);
 					}
+				} else if (t.equals(".align")) {
+					int d = p.nextImm();
+					p.end();
+					if (d <= 0) throw new ParseException();
+					while (list.size() % d != 0) {
+						list.add(new Statement(-1, ""));
+					}
 				} else {
 					list.add(s);
 				}

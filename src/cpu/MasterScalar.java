@@ -1,37 +1,39 @@
 package cpu;
 
 import static java.lang.Math.*;
+import static java.util.Arrays.*;
 import static util.Utils.*;
+import java.util.*;
 import sim.*;
 import asm.*;
 
 public class MasterScalar extends CPU36 {
-
+	
 	public MasterScalar() {
 		super(150e6, 1 << 17, 1 << 6);
 	}
-
+	
 	//Asm
 	protected static long typeI(long unitop, long op, long rs, long imm, long rd) {
 		return unitop << 33 | op << 30 | rs << 22 | rd << 16 | imm;
 	}
-
+	
 	protected static long typeR(long unitop, long op, long rs, long rt, long rd) {
 		return unitop << 33 | op << 30 | rs << 22 | rd << 16 | rt << 10;
 	}
-
+	
 	protected static long typeF(long unitop, long op, long subop, long rs, long rt, long rd) {
 		return unitop << 33 | op << 30 | subop << 28 | rs << 22 | rd << 16 | rt << 10;
 	}
-
+	
 	protected static long typeM(long unitop, long op, long rs, long imm2, long rt) {
 		return unitop << 33 | op << 30 | rs << 22 | (imm2 >> 10 & 0xf) << 18 | rt << 10 | (imm2 & ((1 << 10) - 1)) | 1L << 28;
 	}
-
+	
 	protected static long typeJ(long unitop, long op, long mask, long rs, long rt, long imm2) {
 		return unitop << 33 | op << 31 | mask << 28 | rs << 22 | (imm2 >> 10 & 0xf) << 18 | rt << 10 | (imm2 & ((1 << 10) - 1));
 	}
-
+	
 	@Override
 	protected long getBinary(String op, Parser p) {
 		if (op.equals("li")) {
@@ -101,18 +103,23 @@ public class MasterScalar extends CPU36 {
 		}
 		return super.getBinary(op, p);
 	}
-
+	
 	//Sim
 	@Override
 	protected void init() {
 		super.init();
 		countOpe = new long[256];
+		dcache = new int[DCACHESIZE];
+		fill(dcache, -1);
+		bpTable = new int[BP_TABLE_SIZE];
 		dataSize = prog.data.length;
 		stackSize = heapSize = 0;
 		dataLoad = stackLoad = heapLoad = 0;
 		dataStore = stackStore = heapStore = 0;
+		dHit = dMiss = 0;
+		bpHit = bpMiss = 0;
 	}
-
+	
 	@Override
 	protected void step(long ope) {
 		clock++;
@@ -159,6 +166,7 @@ public class MasterScalar extends CPU36 {
 			int imm3 = getBits(ope, 17, 10);
 			if (jop == 0) { //cmpjmp
 				int cond = cmp(regs[rs], regs[rt]);
+				branchPredict((cond & mask) == 0 ? 1 : 0);
 				if ((cond & mask) == 0) {
 					changePC(imm2);
 				} else {
@@ -166,6 +174,7 @@ public class MasterScalar extends CPU36 {
 				}
 			} else if (jop == 1) { //cmpijmp
 				int cond = cmp(regs[rs], signExt(imm3, 8));
+				branchPredict((cond & mask) == 0 ? 1 : 0);
 				if ((cond & mask) == 0) {
 					if (imm2 == pc) { //halt
 						halted = true;
@@ -180,6 +189,7 @@ public class MasterScalar extends CPU36 {
 				rs += 64;
 				rt += 64;
 				int cond = fcmp(regs[rs], regs[rt]);
+				branchPredict((cond & mask) == 0 ? 1 : 0);
 				if ((cond & mask) == 0) {
 					changePC(imm2);
 				} else {
@@ -299,66 +309,67 @@ public class MasterScalar extends CPU36 {
 			super.step(ope);
 		}
 	}
-
+	
 	//ALU
 	protected int cmp(int a, int b) {
 		return a > b ? 4 : a == b ? 2 : 1;
 	}
-
+	
 	//FPU
 	protected int fadd(int a, int b) {
 		return ftoi(itof(a) + itof(b));
 	}
-
+	
 	protected int fsub(int a, int b) {
 		return ftoi(itof(a) - itof(b));
 	}
-
+	
 	protected int fmul(int a, int b) {
 		return ftoi(itof(a) * itof(b));
 	}
-
+	
 	protected int finv(int a) {
 		return ftoi(1.0f / itof(a));
 	}
-
+	
 	protected int fsqrt(int a) {
 		return ftoi((float)sqrt(itof(a)));
 	}
-
+	
 	protected int fcmp(int a, int b) {
 		float fa = itof(a), fb = itof(b);
 		return fa > fb ? 4 : fa == fb ? 2 : 1;
 	}
-
+	
 	protected int fabsneg(int a, int subop) {
 		if (subop == 0) return a;
 		if (subop == 1) return fneg(a);
 		if (subop == 2) return fabs(a);
 		throw new ExecuteException(String.format("IllegalFlag"));
 	}
-
+	
 	protected int fabs(int a) {
 		return ftoi(abs(itof(a)));
 	}
-
+	
 	protected int fneg(int a) {
 		return ftoi(-(itof(a)));
 	}
-
+	
 	@Override
 	protected int load(int addr) {
-		if (addr < 0x4000) dataLoad++;
+		if (addr < 0x2000) dataLoad++;
 		else if (addr < 0x20000 - 1000) {
 			heapLoad++;
-			heapSize = max(heapSize, addr - 0x4000 + 1);
+			heapSize = max(heapSize, addr - 0x2000 + 1);
 		} else {
 			stackLoad++;
 			stackSize = max(stackSize, 0x20000 - addr);
 		}
+		dcache(addr);
 		return super.load(addr);
 	}
-
+	
 	@Override
 	protected void store(int addr, int i) {
 		if (addr < 0x4000) dataStore++;
@@ -371,10 +382,96 @@ public class MasterScalar extends CPU36 {
 		}
 		super.store(addr, i);
 	}
-
+	
+	//Cache
+	protected static final int DCACHESIZE = 1 << 13;
+	protected int[] dcache;
+	
+	protected void dcache(int a) {
+		if (dcache[a & (DCACHESIZE - 1)] != a) {
+			dcache[a & (DCACHESIZE - 1)] = a;
+			dMiss++;
+		} else {
+			dHit++;
+		}
+	}
+	
+	//BranchPrediction
+	protected static final int BP_TABLE_SIZE = 1 << 13;
+	protected int[] bpTable;
+	protected int bpHistory;
+	
+	protected void branchPredict(int taken) {
+		int p = (pc & (BP_TABLE_SIZE - 1)) ^ (bpHistory << 4);
+		if (taken == (bpTable[p] & 1)) {
+			bpHit++;
+		} else {
+			bpMiss++;
+			//clock += 2;
+		}
+		bpTable[p] = taken << 1 | bpTable[p] >>> 1;
+		bpHistory = (bpHistory << 1 | taken) & ((1 << 9) - 1);
+	}
+	
+	@Override
+	public String[] getViews() {
+		ArrayList<String> list = new ArrayList<String>(asList(super.getViews()));
+		list.add("CallStack");
+		return list.toArray(new String[0]);
+	}
+	
+	//Data
+	@Override
+	protected Data[] getData() {
+		ArrayList<Data> list = new ArrayList<Data>(asList(super.getData()));
+		list.add(new DCacheData());
+		list.add(new BranchData());
+		return list.toArray(new Data[0]);
+	}
+	
+	protected class DCacheData extends Data {
+		
+		private long m;
+		
+		protected DCacheData() {
+			super("DCacheMiss");
+		}
+		
+		@Override
+		protected void begin() {
+			m = dMiss;
+		}
+		
+		@Override
+		protected void end(int pc) {
+			data[pc] += dMiss - m;
+		}
+		
+	}
+	
+	protected class BranchData extends Data {
+		
+		private long m;
+		
+		protected BranchData() {
+			super("BranchMiss");
+		}
+		
+		@Override
+		protected void begin() {
+			m = bpMiss;
+		}
+		
+		@Override
+		protected void end(int pc) {
+			data[pc] += bpMiss - m;
+		}
+		
+	}
+	
 	//Stat
 	protected enum Ope {
-
+		
 		li			(0, "000000"),
 		addi		(0, "000001"),
 		subi		(0, "000010"),
@@ -431,7 +528,7 @@ public class MasterScalar extends CPU36 {
 		read		(0, "011000"),
 		write		(0, "011010"),
 		nop			(0, "101111"),
-
+		
 		_li			(1, "000000"),
 		_addi		(1, "000001"),
 		_subi		(1, "000010"),
@@ -455,13 +552,13 @@ public class MasterScalar extends CPU36 {
 		_read		(1, "011000"),
 		_write		(1, "011010"),
 		_nop		(1, "101111"),
-
+		
 		ALU			(2, "000"),
 		FPU			(2, "100"),
 		LOADSTORE	(2, "010"),
 		IO			(2, "011"),
 		JMP			(2, "110");
-
+		
 		Ope(int level, String...bin) {
 			this.level = level;
 			from = new int[bin.length];
@@ -473,17 +570,19 @@ public class MasterScalar extends CPU36 {
 				to[j] = (i + 1) << size;
 			}
 		}
-
+		
 		protected final int level;
 		protected final int[] from, to;
-
+		
 	}
-
+	
 	protected long[] countOpe;
 	protected int dataSize, stackSize, heapSize;
 	protected long dataLoad, stackLoad, heapLoad;
 	protected long dataStore, stackStore, heapStore;
-
+	protected long dHit, dMiss;
+	protected long bpHit, bpMiss;
+	
 	protected void printStat() {
 		System.err.println();
 		System.err.printf("コード長:%d%n", prog.ss.length);
@@ -511,18 +610,28 @@ public class MasterScalar extends CPU36 {
 		System.err.printf("| Stack | %,d | %,d | %,d |%n", stackSize, stackLoad, stackStore);
 		System.err.printf("| Heap | %,d | %,d | %,d |%n", heapSize, heapLoad, heapStore);
 		System.err.println();
+		System.err.println("* DCache");
+		System.err.printf("| Total | %,d |%n", dHit + dMiss);
+		System.err.printf("| Hit | %,d (%.3f) |%n", dHit, 100.0 * dHit / (dHit + dMiss));
+		System.err.printf("| Miss | %,d (%.3f) |%n", dMiss, 100.0 * dMiss / (dHit + dMiss));
+		System.err.println();
+		System.err.println("* BranchPrediction");
+		System.err.printf("| Total | %,d |%n", bpHit + bpMiss);
+		System.err.printf("| Hit | %,d (%.3f) |%n", bpHit, 100.0 * bpHit / (bpHit + bpMiss));
+		System.err.printf("| Miss | %,d (%.3f) |%n", bpMiss, 100.0 * bpMiss / (bpHit + bpMiss));
+		System.err.println();
 	}
-
+	
 	//NoStat
 	protected static class NoStat extends MasterScalar {
-
+		
 		@Override
 		protected Data[] getData() {
 			return new Data[] {new InstructionData()};
 		}
-
+		
 	}
-
+	
 	//FPU
 	protected static class FPU extends MasterScalar {
 		@Override
@@ -555,4 +664,5 @@ public class MasterScalar extends CPU36 {
 			return cpu.fpu.FPU.fneg(a);
 		}
 	}
+	
 }
