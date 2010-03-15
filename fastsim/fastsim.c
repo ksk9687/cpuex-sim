@@ -46,10 +46,18 @@ unsigned int readInt(FILE *f) {
 	return res;
 }
 
+unsigned int readInt2(FILE *f) {
+	unsigned int i, res = 0;
+	for (i = 0; i < 3; i++) {
+		res = res << 8 | fgetc(f);
+	}
+	return res;
+}
+
 void load(char *name) {
 	int i, size;
 	FILE *f = fopen(name, "r");
-	size = readInt(f) / 3 * 2;
+	size = readInt2(f) / 3 * 2;
 	for (i = 0; i < size; i += 2) {
 		ll a = readInt(f);
 		ll b = readInt(f);

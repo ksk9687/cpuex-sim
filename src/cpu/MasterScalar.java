@@ -389,7 +389,9 @@ public class MasterScalar extends CPU36 {
 
 	protected void dcache(int a) {
 		if (dcache[a & (DCACHESIZE - 1)] != a) {
-			dcache[a & (DCACHESIZE - 1)] = a;
+			for (int i = 0; i < 4; i++) {
+				dcache[(a & ~3 | (a + i) & 3) & (DCACHESIZE - 1)] = (a & ~3 | (a + i) & 3);
+			}
 			dMiss++;
 		} else {
 			dHit++;

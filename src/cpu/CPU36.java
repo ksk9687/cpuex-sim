@@ -37,7 +37,10 @@ public abstract class CPU36 extends CPU {
 		int size = prog.ss.length - OFFSET;
 		if (size % 2 == 1) size++;
 		if (fillNop) size = 1 << 14;
-		out.writeInt(size / 2 * 3);
+		int s = size / 2 * 3;
+		out.writeByte(s >> 16 & 255);
+		out.writeByte(s >> 8 & 255);
+		out.writeByte(s & 255);
 		for (int i = 0; i < size; i += 2) {
 			long data1 = nop, data2 = nop;
 			if (OFFSET + i < prog.ss.length) data1 = prog.ss[OFFSET + i].binary;
